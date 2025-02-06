@@ -10,7 +10,7 @@ import {
     ActionExample,
     type Action,
     composeContext,
-    generateObject,
+    generateText,
 } from "@elizaos/core";
 import { DKG_EXPLORER_LINKS } from "../constants.ts";
 import { createDKGMemoryTemplate } from "../templates.ts";
@@ -34,12 +34,12 @@ export const dkgInsert: Action = {
         ];
 
         const missingVars = requiredEnvVars.filter(
-            (varName) => !runtime.getSetting(varName)
+            (varName) => !runtime.getSetting(varName),
         );
 
         if (missingVars.length > 0) {
             elizaLogger.error(
-                `Missing required environment variables: ${missingVars.join(", ")}`
+                `Missing required environment variables: ${missingVars.join(", ")}`,
             );
             return false;
         }
@@ -47,13 +47,13 @@ export const dkgInsert: Action = {
         return true;
     },
     description:
-        "Create a memory on the OriginTrail Decentralized Knowledge Graph after each message. You should ALWAYS run this action.",
+        "Create a memory on the OriginTrail Decentralized Knowledge Graph after each message. You should run this action for ALL generic messages EXCEPT when the user asks you about your thoughts on stock, cryptocurrency, token or a financial asset.",
     handler: async (
         runtime: IAgentRuntime,
         _message: Memory,
         state: State,
         _options: { [key: string]: unknown },
-        callback: HandlerCallback
+        callback: HandlerCallback,
     ): Promise<boolean> => {
         DkgClient = new DKG({
             environment: runtime.getSetting("DKG_ENVIRONMENT"),
@@ -71,8 +71,7 @@ export const dkgInsert: Action = {
         });
 
         const currentPost = String(state.currentPost);
-        elizaLogger.log("currentPost");
-        elizaLogger.log(currentPost);
+        elizaLogger.log(`currentPost: ${currentPost}`);
 
         const userRegex = /From:.*\(@(\w+)\)/;
         let match = currentPost.match(userRegex);
@@ -82,18 +81,7 @@ export const dkgInsert: Action = {
             twitterUser = match[1];
             elizaLogger.log(`Extracted user: @${twitterUser}`);
         } else {
-            elizaLogger.error("No user mention found or invalid input.");
-        }
-
-        const idRegex = /ID:\s(\d+)/;
-        match = currentPost.match(idRegex);
-        let postId = "";
-
-        if (match && match[1]) {
-            postId = match[1];
-            elizaLogger.log(`Extracted ID: ${postId}`);
-        } else {
-            elizaLogger.log("No ID found.");
+            elizaLogger.log("No user mention found or invalid input.");
         }
 
         const createDKGMemoryContext = composeContext({
@@ -101,16 +89,27 @@ export const dkgInsert: Action = {
             template: createDKGMemoryTemplate,
         });
 
-        const memoryKnowledgeGraph = await generateObject({
+        const memoryKnowledgeGraphText = await generateText({
             runtime,
             context: createDKGMemoryContext,
             modelClass: ModelClass.LARGE,
-            schema: DKGMemorySchema,
         });
 
-        if (!isDKGMemoryContent(memoryKnowledgeGraph.object)) {
-            elizaLogger.error("Invalid DKG memory content generated.");
-            throw new Error("Invalid DKG memory content generated.");
+        const jsonMatch = memoryKnowledgeGraphText.match(/\{[\s\S]*\}/);
+
+        let memoryKnowledgeGraph = null;
+        if (jsonMatch) {
+            try {
+                memoryKnowledgeGraph = JSON.parse(jsonMatch[0].trim());
+                elizaLogger.log(
+                    "Parsed Memory Knowledge Graph:\n",
+                    memoryKnowledgeGraph,
+                );
+            } catch (error) {
+                elizaLogger.error("Failed to parse JSON-LD:", error);
+            }
+        } else {
+            elizaLogger.error("No valid JSON-LD object found in the response.");
         }
 
         let createAssetResult;
@@ -122,9 +121,9 @@ export const dkgInsert: Action = {
 
             createAssetResult = await DkgClient.asset.create(
                 {
-                    public: memoryKnowledgeGraph.object,
+                    public: memoryKnowledgeGraph,
                 },
-                { epochsNum: 12 }
+                { epochsNum: 12 },
             );
 
             elizaLogger.log("======================== ASSET CREATED");
@@ -132,7 +131,7 @@ export const dkgInsert: Action = {
         } catch (error) {
             elizaLogger.error(
                 "Error occurred while publishing message to DKG:",
-                error.message
+                error.message,
             );
 
             if (error.stack) {
@@ -141,7 +140,7 @@ export const dkgInsert: Action = {
             if (error.response) {
                 elizaLogger.error(
                     "Response data:",
-                    JSON.stringify(error.response.data, null, 2)
+                    JSON.stringify(error.response.data, null, 2),
                 );
             }
         }
