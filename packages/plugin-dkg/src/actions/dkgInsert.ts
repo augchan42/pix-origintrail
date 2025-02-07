@@ -20,6 +20,13 @@ import { DKGMemorySchema, isDKGMemoryContent } from "../types.ts";
 
 let DkgClient: any = null;
 
+function extractActor(text) {
+    const lines = text.split("\n").filter((line) => line.trim() !== "");
+    const actors = lines.slice(1);
+
+    return actors.find((actor) => actor.trim() !== "ChatDKG") || null;
+}
+
 export const dkgInsert: Action = {
     name: "INSERT_MEMORY_ACTION",
     similes: ["NO_ACTION", "NO_RESPONSE", "NO_REACTION", "NONE"], // we want to always run this action
@@ -73,16 +80,7 @@ export const dkgInsert: Action = {
         const currentPost = String(state.currentPost);
         elizaLogger.log(`currentPost: ${currentPost}`);
 
-        const userRegex = /From:.*\(@(\w+)\)/;
-        let match = currentPost.match(userRegex);
-        let twitterUser = "";
-
-        if (match && match[1]) {
-            twitterUser = match[1];
-            elizaLogger.log(`Extracted user: @${twitterUser}`);
-        } else {
-            elizaLogger.log("No user mention found or invalid input.");
-        }
+        const telegramUser = extractActor(state.actors);
 
         const createDKGMemoryContext = composeContext({
             state,
@@ -147,7 +145,7 @@ export const dkgInsert: Action = {
 
         // Reply
         callback({
-            text: `Created a new memory!\n\nRead my mind on @origin_trail Decentralized Knowledge Graph ${DKG_EXPLORER_LINKS[runtime.getSetting("DKG_ENVIRONMENT")]}${createAssetResult.UAL} @${twitterUser}`,
+            text: `Created a new memory!\n\nRead my mind on @origin_trail Decentralized Knowledge Graph ${DKG_EXPLORER_LINKS[runtime.getSetting("DKG_ENVIRONMENT")]}${createAssetResult.UAL} @${telegramUser}`,
         });
 
         return true;

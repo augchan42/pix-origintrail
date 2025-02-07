@@ -71,6 +71,13 @@ export async function postTweet(
     }
 }
 
+function extractActor(text) {
+    const lines = text.split("\n").filter((line) => line.trim() !== "");
+    const actors = lines.slice(1);
+
+    return actors.find((actor) => actor.trim() !== "ChatDKG") || null;
+}
+
 function formatCookiesFromArray(cookiesArray: any[]) {
     const cookieStrings = cookiesArray.map(
         (cookie) =>
@@ -141,7 +148,7 @@ async function structureKA(
         );
     } catch (error) {
         console.error("Failed to fetch previous analyses:", error);
-        previousAnalyses = [];
+        previousAnalyses = { data: [] };
     }
 
     const allTweets: (Tweet & { vaderSentimentScore: number })[] =
@@ -196,7 +203,7 @@ async function structureKA(
         );
     } catch (error) {
         console.error("Failed to fetch related datasets:", error);
-        relatedDatasets = [];
+        relatedDatasets = { data: [] };
     }
 
     const ka = {
@@ -211,7 +218,7 @@ async function structureKA(
         variableMeasured: "VADER sentiment",
         observation: observations,
         about: topic,
-        relatedAnalysis: (relatedDatasets.data ?? []).map((rd) => ({
+        relatedAnalysis: (relatedDatasets?.data ?? []).map((rd) => ({
             isPartOf: rd.ual,
             "@id": rd.dataset,
         })),
@@ -223,7 +230,7 @@ async function structureKA(
 export const dkgAnalyzeSentiment: Action = {
     name: "DKG_ANALYZE_SENTIMENT",
     similes: ["ANALYZE_SENTIMENT", "SENTIMENT"],
-    validate: async (runtime: IAgentRuntime, _message: Memory) => {
+    validate: async (runtime: IAgentRuntime, message: Memory) => {
         const requiredEnvVars = [
             "DKG_ENVIRONMENT",
             "DKG_HOSTNAME",
@@ -250,7 +257,7 @@ export const dkgAnalyzeSentiment: Action = {
         "Analyze a stock, cryptocurrency, token or a financial asset's sentiment on X. You should run this action whenever the message asks about your thoughts/analysis/sentiment on a stock, cryptocurrency, token or a financial asset.",
     handler: async (
         runtime: IAgentRuntime,
-        _message: Memory,
+        message: Memory,
         state: State,
         _options: { [key: string]: unknown },
         callback: HandlerCallback,
@@ -270,29 +277,29 @@ export const dkgAnalyzeSentiment: Action = {
             nodeApiVersion: "/v1",
         });
 
-        const currentPost = String(state.currentPost);
+        const currentPost = message.content.text;
         elizaLogger.log(`currentPost: ${currentPost}`);
 
-        const idRegex = /ID:\s(\d+)/;
-        let match = currentPost.match(idRegex);
-        let postId = "";
-        if (match && match[1]) {
-            postId = match[1];
-            elizaLogger.log(`Extracted ID: ${postId}`);
-        } else {
-            elizaLogger.log("No ID found.");
-        }
+        // const idRegex = /ID:\s(\d+)/;
+        // let match = currentPost.match(idRegex);
+        // let postId = "";
+        // if (match && match[1]) {
+        //     postId = match[1];
+        //     elizaLogger.log(`Extracted ID: ${postId}`);
+        // } else {
+        //     elizaLogger.log("No ID found.");
+        // }
 
-        const userRegex = /From:.*\(@(\w+)\)/;
-        match = currentPost.match(userRegex);
-        let twitterUser = "";
+        // const userRegex = /From:.*\(@(\w+)\)/;
+        // match = currentPost.match(userRegex);
+        // let twitterUser = "";
 
-        if (match && match[1]) {
-            twitterUser = match[1];
-            elizaLogger.log(`Extracted user: @${twitterUser}`);
-        } else {
-            elizaLogger.log("No user mention found or invalid input.");
-        }
+        // if (match && match[1]) {
+        //     twitterUser = match[1];
+        //     elizaLogger.log(`Extracted user: @${twitterUser}`);
+        // } else {
+        //     elizaLogger.log("No user mention found or invalid input.");
+        // }
 
         const topic = await generateText({
             runtime,
@@ -365,10 +372,12 @@ export const dkgAnalyzeSentiment: Action = {
         const topAuthors = getMostInfluentialAuthors(tweets);
         elizaLogger.log("Got most influential authors");
 
+        const telegramUser = extractActor(state.actors);
+
         const { ka, averageScore, numOfTotalTweets } = await structureKA(
             tweets,
             topic,
-            twitterUser,
+            telegramUser,
             {
                 dkgClient: DkgClient,
                 environment: runtime.getSetting("DKG_ENVIRONMENT"),
@@ -389,9 +398,9 @@ export const dkgAnalyzeSentiment: Action = {
             { epochsNum: 12 },
         );
 
-        const sentimentData = await getSentimentChart(averageScore, topic);
+        // const sentimentData = await getSentimentChart(averageScore, topic);
 
-        const file = await fetchFileFromUrl(sentimentData.url);
+        // const file = await fetchFileFromUrl(sentimentData.url);
 
         let tweetContent = `${topic} sentiment based on top ${tweets.length} latest posts`;
         if (numOfTotalTweets - tweets.length > 0) {
@@ -407,11 +416,13 @@ export const dkgAnalyzeSentiment: Action = {
                 .join(", ") + "\n\n";
 
         tweetContent += `Analysis memorized on @origin_trail Decentralized Knowledge Graph `;
-        tweetContent += `${DKG_EXPLORER_LINKS[runtime.getSetting("DKG_ENVIRONMENT")]}${createAssetResult.UAL} @${twitterUser}\n\n`;
+        tweetContent += `${DKG_EXPLORER_LINKS[runtime.getSetting("DKG_ENVIRONMENT")]}${createAssetResult.UAL} @${telegramUser}\n\n`;
 
         tweetContent += `This is not financial advice.`;
 
-        await postTweet(tweetContent.trim(), scraper, postId, file.data);
+        await callback({ text: tweetContent });
+
+        // await postTweet(tweetContent.trim(), scraper, postId, file.data);
 
         return true;
     },
