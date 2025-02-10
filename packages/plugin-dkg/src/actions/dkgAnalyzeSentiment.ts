@@ -350,6 +350,14 @@ export const dkgAnalyzeSentiment: Action = {
             }
         }
 
+        if (!topic || topic.toLowerCase() === "none") {
+            await callback({
+                text: `Didn't recognize a ticker of a financial asset in your post. Please post again while clearly stating which stock or cryptocurrency you want to analyze.`,
+            });
+
+            return true;
+        }
+
         const scrapedTweets = scraper.searchTweets(
             topic,
             100,
@@ -406,7 +414,7 @@ export const dkgAnalyzeSentiment: Action = {
         if (numOfTotalTweets - tweets.length > 0) {
             tweetContent += ` and ${numOfTotalTweets - tweets.length} existing analysis Knowledge Assets`;
         }
-        tweetContent += ` from the past 48 hours: ${sentiment}\n\n`;
+        tweetContent += ` from the past 48 hours: ${averageScore.toFixed(2)} ${sentiment}\n\n`;
 
         tweetContent += `Top 5 most influential accounts analyzed for ${topic}:\n`;
         tweetContent +=
