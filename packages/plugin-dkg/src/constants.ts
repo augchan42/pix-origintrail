@@ -2,6 +2,7 @@
 export const dkgMemoryTemplate = {
     "@context": "http://schema.org",
     "@type": "SocialMediaPosting",
+    '@id': 'urn:hexagram:5',
     headline: "<describe memory in a short way, as a title here>",
     articleBody:
         "Check out this amazing project on decentralized cloud networks! @DecentralCloud #Blockchain #Web3",

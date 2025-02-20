@@ -29,7 +29,7 @@ function extractActor(text) {
 
 export const dkgInsert: Action = {
     name: "INSERT_MEMORY_ACTION",
-    similes: ["NO_ACTION", "NO_RESPONSE", "NO_REACTION", "NONE"], // we want to always run this action
+    similes: ["DKG_INSERT", "NO_ACTION", "NO_RESPONSE", "NO_REACTION", "NONE"], // we want to always run this action
     validate: async (runtime: IAgentRuntime, _message: Memory) => {
         const requiredEnvVars = [
             "DKG_ENVIRONMENT",

@@ -32,7 +32,7 @@ Check out the example agent running on X: https://x.com/ChatDKG
 
 - Executes SPARQL queries on the OriginTrail DKG.
 - Retrieves and formats relevant results.
-- Integrates DKG data with Eliza’s response system.
+- Integrates DKG data with Eliza's response system.
 
 ## Plugins
 
@@ -116,3 +116,28 @@ Contributions are welcome! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) fil
 ## License
 
 This plugin is part of the Eliza project. See the main project repository for license information.
+
+# PixOriginTrail Bot
+
+A Telegram bot for [describe your bot's purpose].
+
+## Setup
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Create a `.env` file with your Telegram bot token:
+   ```
+   TELEGRAM_BOT_TOKEN=your_bot_token_here
+   ```
+4. Run the bot:
+   - Development: `npm run dev`
+   - Production: `npm run build && npm start`
+
+## Commands
+
+- `/start` - Start the bot
+- `/help` - Show help information
+
+## License
+
+[Your chosen license]
