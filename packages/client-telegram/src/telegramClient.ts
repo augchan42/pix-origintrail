@@ -34,7 +34,8 @@ export class TelegramClient {
         this.tgTrader = runtime.getSetting("TG_TRADER"); // boolean To Be added to the settings
 
         // Initialize rate limiter (1 request per user per minute)
-        this.rateLimiter = new RateLimiter(5 * 60 * 1000); // 5 minutes
+        // this.rateLimiter = new RateLimiter(5 * 60 * 1000); // 5 minutes
+        this.rateLimiter = new RateLimiter(1 * 1000); // 1 second
 
         elizaLogger.log("✅ TelegramClient constructor completed");
     }
