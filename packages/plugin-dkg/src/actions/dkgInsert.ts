@@ -120,7 +120,7 @@ export const dkgInsert: Action = {
                 createAssetResult = await Promise.race([
                     assetPromise,
                     new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error("DKG asset creation timed out after 30s")), 30000)
+                        setTimeout(() => reject(new Error("DKG asset creation timed out after 99s")), 99000)
                     )
                 ]);
             } catch (error) {
