@@ -1,13 +1,13 @@
 # PixOriginTrail Bot
 
-A Telegram bot that provides market divination insights by leveraging OriginTrail's Decentralized Knowledge Graph (DKG).
+A Telegram bot that provides market divination insights by leveraging OriginTrail's Decentralized Knowledge Graph (DKG) and 8-Bit Oracle's Divination API.
 
 ## Features
 
 - `/scan` - Get market insights and predictions
 - I-Ching divinations from 8bitoracle.ai API
 - Integrates with OriginTrail DKG for knowledge-graph persistence
-- Provides sentiment analysis and market trend predictions with Pix Street Samurai storytelling
+- Provides sentiment analysis and market trend predictions with Pix Street Samurai storytelling (sentiment and market news from irai.co)
 
 ## Setup
 
@@ -30,14 +30,13 @@ A Telegram bot that provides market divination insights by leveraging OriginTrai
 
 ## How it Works
 
-The bot connects to OriginTrail's DKG to analyze market data and provide insights. When you use the `/scan` command, it:
+The bot persists readings to OriginTrail's DKG for future analysis. When you use the `/scan` command, it:
 
-1. Queries the irai.co for relevant market and sentiment
-2. Analyzes market sentiment and trends
-3. Generates a prediction based on the analyzed data
-4. Returns a human-readable market insight
-5. Persists to DKG knowledge graph
-6. More analysis from Origin Trail DKG will be avaiable in the future
+1. Queries irai.co for relevant market and sentiment
+2. Calls the 8bitoracle.ai divination API for I-Ching Hexagrams.  On the backend it, it is a faithful simulation of the traditional yarrow stalk process.
+3. Returns market insights combined with the hexagram reading in Neuromancer street samurai format
+4. Persists to DKG knowledge graph
+5. Additional analysis and insights from Origin Trail DKG will be available in the future
 
 ## License
 
