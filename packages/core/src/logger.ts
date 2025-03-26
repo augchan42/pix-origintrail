@@ -13,7 +13,7 @@ const customLevels: Record<string, number> = {
     trace: 10,
 };
 
-const raw = process?.env?.LOG_JSON_FORMAT || false;
+const raw = process?.env?.LOG_JSON_FORMAT === "true";
 
 const createStream = () => {
     if (raw) {
@@ -23,6 +23,23 @@ const createStream = () => {
         colorize: true,
         translateTime: "yyyy-mm-dd HH:MM:ss",
         ignore: "pid,hostname",
+        levelFirst: true,
+        customLevels: customLevels,
+        customColors: {
+            fatal: "red",
+            error: "red",
+            warn: "yellow",
+            info: "blue",
+            log: "white",
+            progress: "cyan",
+            success: "green",
+            debug: "magenta",
+            trace: "gray"
+        },
+        messageFormat: (log, messageKey) => {
+            const level = Object.entries(customLevels).find(([, num]) => num === log.level)?.[0] || "unknown";
+            return `[${level.toUpperCase()}] ${log[messageKey]}`;
+        }
     });
 };
 
