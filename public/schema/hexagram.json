@@ -1,0 +1,359 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://app.8bitoracle.ai/schema/hexagram",
+    "title": "8-Bit Oracle Hexagram Schema",
+    "description": "Schema for representing I-Ching hexagrams in the 8-Bit Oracle system",
+    "type": "object",
+    "properties": {
+        "@type": {
+            "type": "string",
+            "const": "hexagram:Hexagram",
+            "description": "The type identifier for a hexagram object"
+        },
+        "fullHexagramData": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "rounds": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "initialSticks": {
+                                    "type": "integer",
+                                    "description": "Number of yarrow stalks at start of round"
+                                },
+                                "bundle1": {
+                                    "type": "integer",
+                                    "description": "First bundle of stalks"
+                                },
+                                "bundle2": {
+                                    "type": "integer",
+                                    "description": "Second bundle of stalks"
+                                },
+                                "removedFromRight": {
+                                    "type": "integer",
+                                    "description": "Stalks removed from right"
+                                },
+                                "remainder1": {
+                                    "type": "integer",
+                                    "description": "Remainder from first division"
+                                },
+                                "remainder2": {
+                                    "type": "integer",
+                                    "description": "Remainder from second division"
+                                },
+                                "roundValue": {
+                                    "type": "integer",
+                                    "description": "Value for this round"
+                                },
+                                "mappedValue": {
+                                    "type": "integer",
+                                    "description": "Mapped line value"
+                                },
+                                "finalSticks": {
+                                    "type": "integer",
+                                    "description": "Final number of stalks"
+                                }
+                            },
+                            "required": [
+                                "initialSticks",
+                                "bundle1",
+                                "bundle2",
+                                "removedFromRight",
+                                "remainder1",
+                                "remainder2",
+                                "roundValue",
+                                "mappedValue",
+                                "finalSticks"
+                            ]
+                        },
+                        "minItems": 3,
+                        "maxItems": 3
+                    },
+                    "lineValue": {
+                        "type": "integer",
+                        "enum": [6, 7, 8, 9],
+                        "description": "Final value for this line"
+                    }
+                },
+                "required": ["rounds", "lineValue"]
+            },
+            "minItems": 6,
+            "maxItems": 6
+        },
+        "hexagramLineValues": {
+            "type": "array",
+            "items": {
+                "type": "integer",
+                "enum": [6, 7, 8, 9]
+            },
+            "minItems": 6,
+            "maxItems": 6,
+            "description": "Array of line values"
+        },
+        "interpretation": {
+            "type": "object",
+            "properties": {
+                "currentHexagram": {
+                    "type": "object",
+                    "properties": {
+                        "number": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 64
+                        },
+                        "unicode": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "object",
+                            "properties": {
+                                "pinyin": {
+                                    "type": "string"
+                                },
+                                "chinese": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["pinyin", "chinese"]
+                        },
+                        "topTrigram": {
+                            "type": "string"
+                        },
+                        "bottomTrigram": {
+                            "type": "string"
+                        },
+                        "meaning": {
+                            "type": "string"
+                        },
+                        "binary": {
+                            "type": "string",
+                            "pattern": "^[01]{6}$"
+                        },
+                        "upperTrigram": {
+                            "type": "object",
+                            "properties": {
+                                "description": {
+                                    "type": "string"
+                                },
+                                "english": {
+                                    "type": "string"
+                                },
+                                "chinese": {
+                                    "type": "string"
+                                },
+                                "figure": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "description",
+                                "english",
+                                "chinese",
+                                "figure"
+                            ]
+                        },
+                        "lowerTrigram": {
+                            "type": "object",
+                            "properties": {
+                                "description": {
+                                    "type": "string"
+                                },
+                                "english": {
+                                    "type": "string"
+                                },
+                                "chinese": {
+                                    "type": "string"
+                                },
+                                "figure": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "description",
+                                "english",
+                                "chinese",
+                                "figure"
+                            ]
+                        },
+                        "judgment": {
+                            "type": "string"
+                        },
+                        "image": {
+                            "type": "string"
+                        },
+                        "lines": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "number": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 6
+                                    },
+                                    "text": {
+                                        "type": "string"
+                                    },
+                                    "changed": {
+                                        "type": "boolean"
+                                    },
+                                    "value": {
+                                        "type": "integer",
+                                        "enum": [6, 7, 8, 9]
+                                    }
+                                },
+                                "required": [
+                                    "number",
+                                    "text",
+                                    "changed",
+                                    "value"
+                                ]
+                            },
+                            "minItems": 6,
+                            "maxItems": 6
+                        }
+                    },
+                    "required": [
+                        "number",
+                        "unicode",
+                        "name",
+                        "topTrigram",
+                        "bottomTrigram",
+                        "meaning",
+                        "binary",
+                        "upperTrigram",
+                        "lowerTrigram",
+                        "judgment",
+                        "image",
+                        "lines"
+                    ]
+                },
+                "transformedHexagram": {
+                    "type": "object",
+                    "properties": {
+                        "number": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 64
+                        },
+                        "unicode": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "object",
+                            "properties": {
+                                "pinyin": {
+                                    "type": "string"
+                                },
+                                "chinese": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["pinyin", "chinese"]
+                        },
+                        "topTrigram": {
+                            "type": "string"
+                        },
+                        "bottomTrigram": {
+                            "type": "string"
+                        },
+                        "meaning": {
+                            "type": "string"
+                        },
+                        "binary": {
+                            "type": "string",
+                            "pattern": "^[01]{6}$"
+                        },
+                        "upperTrigram": {
+                            "type": "object",
+                            "properties": {
+                                "description": {
+                                    "type": "string"
+                                },
+                                "english": {
+                                    "type": "string"
+                                },
+                                "chinese": {
+                                    "type": "string"
+                                },
+                                "figure": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "description",
+                                "english",
+                                "chinese",
+                                "figure"
+                            ]
+                        },
+                        "lowerTrigram": {
+                            "type": "object",
+                            "properties": {
+                                "description": {
+                                    "type": "string"
+                                },
+                                "english": {
+                                    "type": "string"
+                                },
+                                "chinese": {
+                                    "type": "string"
+                                },
+                                "figure": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "description",
+                                "english",
+                                "chinese",
+                                "figure"
+                            ]
+                        },
+                        "judgment": {
+                            "type": "string"
+                        },
+                        "image": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "number",
+                        "unicode",
+                        "name",
+                        "topTrigram",
+                        "bottomTrigram",
+                        "meaning",
+                        "binary",
+                        "upperTrigram",
+                        "lowerTrigram",
+                        "judgment",
+                        "image"
+                    ]
+                },
+                "changes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "line": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 6
+                            },
+                            "changed": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": ["line", "changed"]
+                    }
+                }
+            },
+            "required": ["currentHexagram", "transformedHexagram", "changes"]
+        }
+    },
+    "required": ["fullHexagramData", "hexagramLineValues", "interpretation"]
+}

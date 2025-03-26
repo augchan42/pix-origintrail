@@ -67,3 +67,6 @@ packages/plugin-nvidia-nim/extra
 packages/plugin-nvidia-nim/old_code
 packages/plugin-nvidia-nim/docs
 characters
+# Private individual user cursor rules
+.cursor
+xnotes

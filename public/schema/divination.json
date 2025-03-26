@@ -1,0 +1,126 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://app.8bitoracle.ai/schema/divination",
+    "title": "8-Bit Oracle Divination Schema",
+    "description": "Schema for representing divination readings in the 8-Bit Oracle system",
+    "type": "object",
+    "properties": {
+        "@type": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "enum": ["CreativeWork", "divination:Reading"]
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "The type identifiers for a divination reading"
+        },
+        "@id": {
+            "type": "string",
+            "pattern": "^urn:hexagram:[1-9][0-9]?$",
+            "description": "Unique identifier for the reading using the hexagram number"
+        },
+        "name": {
+            "type": "string",
+            "description": "Combined name of the hexagram (Pinyin - Chinese - English)"
+        },
+        "dateCreated": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 timestamp of when the reading was created"
+        },
+        "author": {
+            "type": "object",
+            "properties": {
+                "@type": {
+                    "type": "string",
+                    "const": "Person"
+                },
+                "identifier": {
+                    "type": "string",
+                    "description": "User identifier (e.g. @username)"
+                }
+            },
+            "required": ["@type", "identifier"]
+        },
+        "divination:context": {
+            "type": "object",
+            "properties": {
+                "marketSentiment": {
+                    "type": "object",
+                    "description": "Market sentiment data at time of reading",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "properties": {
+                                "overview": {
+                                    "type": "string",
+                                    "description": "Raw sentiment overview data as a string containing JSON-like data"
+                                },
+                                "moving_average": {
+                                    "type": "object",
+                                    "properties": {
+                                        "time": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "number"
+                                            },
+                                            "description": "Array of timestamps for sentiment measurements"
+                                        },
+                                        "sentiment": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "number"
+                                            },
+                                            "description": "Array of sentiment values corresponding to timestamps"
+                                        }
+                                    },
+                                    "required": ["time", "sentiment"]
+                                }
+                            },
+                            "required": ["overview", "moving_average"]
+                        }
+                    },
+                    "required": ["data"]
+                },
+                "newsEvents": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "Array of news event descriptions"
+                        }
+                    },
+                    "required": ["data"],
+                    "description": "News events data from IRAI API"
+                },
+                "hexagramData": {
+                    "$ref": "hexagram.json",
+                    "description": "The complete hexagram data from 8-Bit Oracle"
+                },
+                "interpretation": {
+                    "type": "string",
+                    "description": "Full interpretation of the reading in context"
+                }
+            },
+            "required": [
+                "interpretation",
+                "marketSentiment",
+                "newsEvents",
+                "hexagramData"
+            ]
+        }
+    },
+    "required": [
+        "@type",
+        "@id",
+        "name",
+        "dateCreated",
+        "author",
+        "divination:context"
+    ],
+    "additionalProperties": false
+}

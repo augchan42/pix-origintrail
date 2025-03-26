@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>8-Bit Oracle Schema Documentation</title>
+        <style>
+            body {
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                line-height: 1.6;
+                max-width: 1000px;
+                margin: 0 auto;
+                padding: 2rem;
+                background: #f5f5f5;
+            }
+            .container {
+                background: white;
+                padding: 2rem;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            h1,
+            h2 {
+                color: #333;
+                border-bottom: 2px solid #eee;
+                padding-bottom: 0.5rem;
+            }
+            pre {
+                background: #f8f8f8;
+                padding: 1rem;
+                border-radius: 4px;
+                overflow-x: auto;
+            }
+            code {
+                font-family: "Consolas", monospace;
+            }
+            .schema-link {
+                display: inline-block;
+                margin: 1rem 0;
+                padding: 0.5rem 1rem;
+                background: #007bff;
+                color: white;
+                text-decoration: none;
+                border-radius: 4px;
+            }
+            .schema-link:hover {
+                background: #0056b3;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>8-Bit Oracle Schema Documentation</h1>
+
+            <p>
+                This documentation describes the JSON Schema definitions used by
+                8-Bit Oracle for hexagram divination data and its persistence in
+                the OriginTrail Decentralized Knowledge Graph (DKG).
+            </p>
+
+            <h2>Available Schemas</h2>
+
+            <h3>1. Hexagram Schema</h3>
+            <p>
+                Defines the structure for I-Ching hexagrams in the 8-Bit Oracle
+                system.
+            </p>
+            <a href="hexagram.json" class="schema-link">View Hexagram Schema</a>
+
+            <h3>Example Hexagram Usage</h3>
+            <pre><code>{
+  "@type": "hexagram:Hexagram",
+  "hexagram:number": 5,
+  "hexagram:binary": "010101",
+  "hexagram:name": {
+    "chinese": "需",
+    "pinyin": "Xu"
+  },
+  "hexagram:lines": [
+    {
+      "number": 1,
+      "value": 7,
+      "changed": false
+    }
+    // ... remaining lines
+  ]
+}</code></pre>
+
+            <h3>2. Divination Schema</h3>
+            <p>
+                Defines the structure for complete divination readings,
+                including market context and interpretation.
+            </p>
+            <a href="divination.json" class="schema-link"
+                >View Divination Schema</a
+            >
+
+            <h3>Example Divination Usage</h3>
+            <pre><code>{
+  "@type": ["CreativeWork", "divination:Reading"],
+  "@id": "urn:hexagram:5",
+  "name": "Xu - 需 - Waiting",
+  "dateCreated": "2024-03-26T12:00:00Z",
+  "author": {
+    "@type": "Person",
+    "identifier": "@user123"
+  },
+  "divination:context": {
+    "marketSentiment": {
+      "Telegram": {
+        "current": "positive",
+        "24 hours ago": "negative",
+        "7 days ago": "negative"
+      },
+      "Reddit": {
+        "current": "highly positive",
+        "24 hours ago": "highly positive",
+        "7 days ago": "highly positive"
+      },
+      "General market": {
+        "current": "highly positive",
+        "24 hours ago": "positive",
+        "7 days ago": "positive"
+      }
+    },
+    "newsEvents": [
+      "Mt. Gox, the bankrupt Japanese crypto exchange, made a $1 billion Bitcoin transaction, sparking speculation among creditors about potential payouts.",
+      "Over half of U.S. states have introduced Bitcoin reserve bills, with Wisconsin leading by becoming the first state to invest in Bitcoin ETFs."
+    ],
+    "interpretation": "The market shows strong positive momentum across multiple platforms, with particularly bullish sentiment on Reddit..."
+  }
+}</code></pre>
+
+            <h2>Integration with OriginTrail DKG</h2>
+            <p>
+                These schemas are used to structure knowledge assets in the
+                OriginTrail DKG. The structured format enables:
+            </p>
+            <ul>
+                <li>Semantic querying of divination history</li>
+                <li>Temporal relationship tracking between readings</li>
+                <li>Market context preservation</li>
+                <li>Standardized data exchange</li>
+            </ul>
+
+            <h2>Schema Versioning</h2>
+            <p>
+                The current schema version is 1.0.0. Any breaking changes will
+                be reflected in the schema version number following semantic
+                versioning principles.
+            </p>
+        </div>
+    </body>
+</html>

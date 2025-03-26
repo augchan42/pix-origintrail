@@ -1,76 +1,55 @@
 // TODO: add isConnectedTo field or similar which you will use to connect w other KAs
 export const dkgMemoryTemplate = {
-    "@context": "http://schema.org",
-    "@type": "SocialMediaPosting",
-    '@id': 'urn:hexagram:5',
-    headline: "<describe memory in a short way, as a title here>",
-    articleBody:
-        "Check out this amazing project on decentralized cloud networks! @DecentralCloud #Blockchain #Web3",
+    "@context": [
+        "https://schema.org",
+        {
+            hexagram: "https://app.8bitoracle.ai/schema/hexagram#",
+            divination: "https://app.8bitoracle.ai/schema/divination#",
+        },
+    ],
+    "@type": ["CreativeWork", "divination:Reading"],
+    "@id": "urn:hexagram:{number}",
+    name: "{title}",
+    dateCreated: "{timestamp}",
     author: {
         "@type": "Person",
-        "@id": "uuid:john:doe",
-        name: "John Doe",
-        identifier: "@JohnDoe",
-        url: "https://twitter.com/JohnDoe",
+        "@id": "{userId}",
+        identifier: "{userIdentifier}",
     },
-    dateCreated: "yyyy-mm-ddTHH:mm:ssZ",
-    interactionStatistic: [
-        {
-            "@type": "InteractionCounter",
-            interactionType: {
-                "@type": "LikeAction",
+    "hexagram:data": {
+        "@type": "hexagram:Hexagram",
+        "hexagram:number": "{hexagramNumber}",
+        "hexagram:binary": "{binary}",
+        "hexagram:unicode": "{unicode}",
+        "hexagram:name": {
+            chinese: "{chineseName}",
+            pinyin: "{pinyinName}",
+        },
+        "hexagram:trigrams": {
+            upper: {
+                english: "{upperEnglish}",
+                chinese: "{upperChinese}",
+                description: "{upperDescription}",
+                figure: "{upperFigure}",
             },
-            userInteractionCount: 150,
-        },
-        {
-            "@type": "InteractionCounter",
-            interactionType: {
-                "@type": "ShareAction",
+            lower: {
+                english: "{lowerEnglish}",
+                chinese: "{lowerChinese}",
+                description: "{lowerDescription}",
+                figure: "{lowerFigure}",
             },
-            userInteractionCount: 45,
         },
-    ],
-    mentions: [
-        {
-            "@type": "Person",
-            name: "Twitter account mentioned name goes here",
-            identifier: "@TwitterAccount",
-            url: "https://twitter.com/TwitterAccount",
+        "hexagram:lines": "{lines}",
+        "hexagram:computation": {
+            rounds: "{rounds}",
+            lineValues: "{lineValues}",
         },
-    ],
-    keywords: [
-        {
-            "@type": "Text",
-            "@id": "uuid:keyword1",
-            name: "keyword1",
-        },
-        {
-            "@type": "Text",
-            "@id": "uuid:keyword2",
-            name: "keyword2",
-        },
-    ],
-    about: [
-        {
-            "@type": "Thing",
-            "@id": "uuid:thing1",
-            name: "Blockchain",
-            url: "https://en.wikipedia.org/wiki/Blockchain",
-        },
-        {
-            "@type": "Thing",
-            "@id": "uuid:thing2",
-            name: "Web3",
-            url: "https://en.wikipedia.org/wiki/Web3",
-        },
-        {
-            "@type": "Thing",
-            "@id": "uuid:thing3",
-            name: "Decentralized Cloud",
-            url: "https://example.com/DecentralizedCloud",
-        },
-    ],
-    url: "https://twitter.com/JohnDoe/status/1234567890",
+    },
+    "divination:context": {
+        marketSentiment: "{marketSentiment}",
+        newsEvents: "{newsEvents}",
+        interpretation: "{interpretation}",
+    },
 };
 
 export const combinedSparqlExample = `
