@@ -18,13 +18,122 @@ import { createDKGMemoryTemplate } from "../templates.ts";
 import DKG from "dkg.js";
 import { DKGMemorySchema, isDKGMemoryContent } from "../types.ts";
 
+interface DivinationData {
+    hexagramNumber: number;
+    binary: string;
+    unicode: string;
+    name: {
+        chinese: string;
+        pinyin: string;
+    };
+    trigrams: {
+        upper: {
+            english: string;
+            chinese: string;
+            description: string;
+            figure: string;
+        };
+        lower: {
+            english: string;
+            chinese: string;
+            description: string;
+            figure: string;
+        };
+    };
+    lines: Array<{
+        number: number;
+        text: string;
+        changed: boolean;
+        value: number;
+    }>;
+    computation: {
+        rounds: Array<{
+            initialSticks: number;
+            finalSticks: number;
+            mappedValue: number;
+        }>;
+        lineValues: number[];
+    };
+}
+
+function createDivinationJsonLD(params: {
+    hexagramData: DivinationData;
+    marketSentiment: any;
+    newsEvents: any;
+    interpretation: string;
+    userId: string;
+    userIdentifier: string;
+}): any {
+    const {
+        hexagramData,
+        marketSentiment,
+        newsEvents,
+        interpretation,
+        userId,
+        userIdentifier,
+    } = params;
+
+    return {
+        "@context": [
+            "https://schema.org",
+            {
+                hexagram: "https://app.8bitoracle.ai/schema/hexagram#",
+                divination: "https://app.8bitoracle.ai/schema/divination#",
+            },
+        ],
+        "@type": ["CreativeWork", "divination:Reading"],
+        "@id": `urn:hexagram:${hexagramData.hexagramNumber}`,
+        name: `${hexagramData.name.pinyin} - ${hexagramData.name.chinese}`,
+        dateCreated: new Date().toISOString(),
+        author: {
+            "@type": "Person",
+            "@id": userId,
+            identifier: userIdentifier,
+        },
+        "hexagram:data": {
+            "@type": "hexagram:Hexagram",
+            "hexagram:number": hexagramData.hexagramNumber,
+            "hexagram:binary": hexagramData.binary,
+            "hexagram:unicode": hexagramData.unicode,
+            "hexagram:name": {
+                chinese: hexagramData.name.chinese,
+                pinyin: hexagramData.name.pinyin,
+            },
+            "hexagram:trigrams": {
+                upper: {
+                    english: hexagramData.trigrams.upper.english,
+                    chinese: hexagramData.trigrams.upper.chinese,
+                    description: hexagramData.trigrams.upper.description,
+                    figure: hexagramData.trigrams.upper.figure,
+                },
+                lower: {
+                    english: hexagramData.trigrams.lower.english,
+                    chinese: hexagramData.trigrams.lower.chinese,
+                    description: hexagramData.trigrams.lower.description,
+                    figure: hexagramData.trigrams.lower.figure,
+                },
+            },
+            "hexagram:lines": hexagramData.lines,
+            "hexagram:computation": {
+                rounds: hexagramData.computation.rounds,
+                lineValues: hexagramData.computation.lineValues,
+            },
+        },
+        "divination:context": {
+            marketSentiment: marketSentiment,
+            newsEvents: newsEvents,
+            interpretation: interpretation,
+        },
+    };
+}
+
 let DkgClient: any = null;
 
 const MAX_RETRIES = 3;
 
 async function generateValidJsonLD(
     runtime: IAgentRuntime,
-    context: string,
+    state: State,
     attempt: number = 1,
     lastError?: { type: "parse" | "validation"; details: string },
 ): Promise<any> {
@@ -34,7 +143,6 @@ async function generateValidJsonLD(
             previous_error: lastError || "none",
             attempt_number: attempt,
             max_retries: MAX_RETRIES,
-            context_preview: context.substring(0, 1000),
         },
     );
 
@@ -44,129 +152,45 @@ async function generateValidJsonLD(
         throw new Error(errorMsg);
     }
 
-    let retryContext = context;
-    if (lastError) {
-        // Add error context to help guide the model
-        retryContext = `Previous attempt failed with ${lastError.type} error: ${lastError.details}\n\nPlease generate a valid JSON-LD document that matches the required schema. Ensure all required fields are present and properly formatted.\n\n${context}`;
-    }
-
     try {
-        const result = await generateText({
-            runtime,
-            context: retryContext,
-            modelClass: ModelClass.LARGE,
+        // Extract required data from state
+        const hexagramData = JSON.parse(
+            state.oracleReading as string,
+        ) as DivinationData;
+        const marketSentiment = JSON.parse(state.marketSentiment as string);
+        const newsEvents = JSON.parse(state.newsEvent as string);
+        const interpretation = (state.interpretation as string) || "";
+        const userId = state.userId as string;
+        const userIdentifier = (state.userIdentifier as string) || userId;
+
+        // Create JSON-LD using direct object mapping
+        const jsonLD = createDivinationJsonLD({
+            hexagramData,
+            marketSentiment,
+            newsEvents,
+            interpretation,
+            userId,
+            userIdentifier,
         });
 
-        elizaLogger.debug("Generated text result", {
-            result_length: result.length,
-            result_preview: result.substring(0, 1000),
+        elizaLogger.debug("Generated JSON-LD for validation", {
+            complete_json: JSON.stringify(jsonLD, null, 2),
+            validation_stage: "pre-validation",
         });
-
-        let parsedJson;
-        try {
-            // Extract JSON from the response if it's wrapped in markdown
-            const jsonMatch =
-                result.match(/```json\s*([\s\S]*?)\s*```/) ||
-                result.match(/```\s*([\s\S]*?)\s*```/);
-            const jsonStr = jsonMatch ? jsonMatch[1] : result;
-            parsedJson = JSON.parse(jsonStr);
-
-            elizaLogger.debug("Generated JSON-LD for validation", {
-                complete_json: JSON.stringify(parsedJson, null, 2),
-                validation_stage: "pre-validation",
-            });
-
-            elizaLogger.debug("JSON-LD structure analysis", {
-                top_level_fields: Object.keys(parsedJson),
-                has_context: !!parsedJson["@context"],
-                has_type: !!parsedJson["@type"],
-                has_divination_context: !!parsedJson["divination:context"],
-                divination_context_fields: parsedJson["divination:context"]
-                    ? Object.keys(parsedJson["divination:context"])
-                    : [],
-                hexagram_data: parsedJson["divination:context"]?.hexagramData
-                    ? {
-                          complete_hexagram:
-                              parsedJson["divination:context"].hexagramData,
-                          has_full_data:
-                              !!parsedJson["divination:context"].hexagramData
-                                  .fullHexagramData,
-                          has_line_values:
-                              !!parsedJson["divination:context"].hexagramData
-                                  .hexagramLineValues,
-                          has_interpretation:
-                              !!parsedJson["divination:context"].hexagramData
-                                  .interpretation,
-                      }
-                    : "missing",
-            });
-        } catch (parseError) {
-            elizaLogger.warn("Failed to parse JSON", {
-                error: parseError.message,
-                stack: parseError.stack,
-                raw_text: result,
-            });
-
-            return generateValidJsonLD(runtime, context, attempt + 1, {
-                type: "parse",
-                details: parseError.message,
-            });
-        }
 
         // Validate against schema
-        const isValid = isDKGMemoryContent(parsedJson);
+        const isValid = isDKGMemoryContent(jsonLD);
         const validationErrors: string[] = [];
 
-        // Check required top-level fields
-        if (!parsedJson["@context"]) validationErrors.push("Missing @context");
-        if (!parsedJson["@type"]) validationErrors.push("Missing @type");
-        if (!parsedJson["@id"]) validationErrors.push("Missing @id");
-        if (!parsedJson.author) validationErrors.push("Missing author");
-
-        // Check divination context if present
-        if (parsedJson["divination:context"]) {
-            const context = parsedJson["divination:context"];
-            elizaLogger.debug("Validating divination context", {
-                complete_context: context,
-                validation_results: {
-                    has_market_sentiment: !!context.marketSentiment,
-                    market_sentiment_data: context.marketSentiment,
-                    has_news_events: !!context.newsEvents,
-                    news_events_data: context.newsEvents,
-                    has_hexagram_data: !!context.hexagramData,
-                    hexagram_complete_data: context.hexagramData,
-                    has_interpretation: !!context.interpretation,
-                    interpretation_text: context.interpretation,
-                },
-            });
-
-            if (!context.marketSentiment)
-                validationErrors.push(
-                    "Missing marketSentiment in divination:context",
-                );
-            if (!context.newsEvents)
-                validationErrors.push(
-                    "Missing newsEvents in divination:context",
-                );
-            if (!context.hexagramData)
-                validationErrors.push(
-                    "Missing hexagramData in divination:context",
-                );
-            if (!context.interpretation)
-                validationErrors.push(
-                    "Missing interpretation in divination:context",
-                );
-        }
-
-        if (!isValid || validationErrors.length > 0) {
+        if (!isValid) {
             elizaLogger.warn("Validation failed", {
                 validation_errors: validationErrors,
                 schema_validation_passed: isValid,
-                complete_json: JSON.stringify(parsedJson, null, 2),
+                complete_json: JSON.stringify(jsonLD, null, 2),
                 validation_stage: "failed",
             });
 
-            return generateValidJsonLD(runtime, context, attempt + 1, {
+            return generateValidJsonLD(runtime, state, attempt + 1, {
                 type: "validation",
                 details: validationErrors.join("; "),
             });
@@ -174,18 +198,11 @@ async function generateValidJsonLD(
 
         elizaLogger.info("Successfully generated valid JSON-LD", {
             attempt,
-            complete_json: JSON.stringify(parsedJson, null, 2),
+            complete_json: JSON.stringify(jsonLD, null, 2),
             validation_stage: "success",
-            structure: Object.keys(parsedJson),
-            divination_context_complete:
-                parsedJson["divination:context"] &&
-                parsedJson["divination:context"].marketSentiment &&
-                parsedJson["divination:context"].newsEvents &&
-                parsedJson["divination:context"].hexagramData &&
-                parsedJson["divination:context"].interpretation,
         });
 
-        return parsedJson;
+        return jsonLD;
     } catch (error) {
         elizaLogger.error("Error generating JSON-LD", {
             error: error.message,
@@ -194,7 +211,7 @@ async function generateValidJsonLD(
         });
 
         if (attempt < MAX_RETRIES) {
-            return generateValidJsonLD(runtime, context, attempt + 1, {
+            return generateValidJsonLD(runtime, state, attempt + 1, {
                 type: "parse",
                 details: error.message,
             });
@@ -287,7 +304,7 @@ export const dkgInsert: Action = {
 
             const memoryKnowledgeGraph = await generateValidJsonLD(
                 runtime,
-                createDKGMemoryContext,
+                state,
             );
 
             if (!memoryKnowledgeGraph) {
