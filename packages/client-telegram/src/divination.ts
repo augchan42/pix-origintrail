@@ -309,6 +309,8 @@ export class DivinationClient {
         const timeout = setTimeout(() => controller.abort(), 15000);
 
         try {
+            elizaLogger.info("Fetching hexagram from 8-Bit Oracle API");
+
             const response = await fetch(
                 "https://app.8bitoracle.ai/api/generate/hexagram?includeText=true",
                 {
@@ -321,15 +323,33 @@ export class DivinationClient {
             );
 
             if (!response.ok) {
-                throw new Error(
-                    `Failed to fetch oracle: ${response.status} ${response.statusText}`,
-                );
+                const errorMsg = `Failed to fetch oracle: ${response.status} ${response.statusText}`;
+                elizaLogger.error(errorMsg, {
+                    status: response.status,
+                    statusText: response.statusText,
+                });
+                throw new Error(errorMsg);
             }
 
             const data: HexagramGenerateResponse = await response.json();
+
+            elizaLogger.info("Successfully fetched hexagram data", {
+                has_full_data: !!data.fullHexagramData,
+                has_line_values: !!data.hexagramLineValues,
+                has_interpretation: !!data.interpretation,
+                line_values_count: data.hexagramLineValues?.length,
+                current_hexagram_number:
+                    data.interpretation?.currentHexagram?.number,
+                has_transformed: !!data.interpretation?.transformedHexagram,
+                changes_count: data.interpretation?.changes?.length,
+            });
+
             return data;
         } catch (error: unknown) {
-            elizaLogger.error("Oracle reading failed:", error);
+            elizaLogger.error("Oracle reading failed:", {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
+            });
             throw error;
         } finally {
             clearTimeout(timeout);

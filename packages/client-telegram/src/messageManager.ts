@@ -1,5 +1,5 @@
-import type { Message } from "@telegraf/types";
-import type { Context, Telegraf } from "telegraf";
+import type { Message, Update } from "telegraf/types";
+import type { Context, Telegraf, NarrowedContext } from "telegraf";
 import {
     composeContext,
     elizaLogger,
@@ -71,6 +71,16 @@ export type InterestChats = {
     };
 };
 
+// Add type for messages that can contain media
+type MediaMessage =
+    | Message.PhotoMessage
+    | Message.DocumentMessage
+    | Message.VideoMessage;
+type TelegramMessage = Message & {
+    text?: string;
+    caption?: string;
+};
+
 export class MessageManager {
     public bot: Telegraf<Context>;
     private runtime: IAgentRuntime;
@@ -88,8 +98,8 @@ export class MessageManager {
         this._initializeTeamMemberUsernames().catch((error) =>
             elizaLogger.error(
                 "Error initializing team member usernames:",
-                error
-            )
+                error,
+            ),
         );
 
         this.autoPostConfig = {
@@ -131,13 +141,13 @@ export class MessageManager {
                 if ("username" in chat && chat.username) {
                     this.teamMemberUsernames.set(id, chat.username);
                     elizaLogger.info(
-                        `Cached username for team member ${id}: ${chat.username}`
+                        `Cached username for team member ${id}: ${chat.username}`,
                     );
                 }
             } catch (error) {
                 elizaLogger.error(
                     `Error getting username for team member ${id}:`,
-                    error
+                    error,
                 );
             }
         }
@@ -147,16 +157,16 @@ export class MessageManager {
         // Wait for bot to be ready
         if (this.bot.botInfo) {
             elizaLogger.info(
-                "[AutoPost Telegram] Bot ready, starting monitoring"
+                "[AutoPost Telegram] Bot ready, starting monitoring",
             );
             this._initializeAutoPost();
         } else {
             elizaLogger.info(
-                "[AutoPost Telegram] Bot not ready, waiting for ready event"
+                "[AutoPost Telegram] Bot not ready, waiting for ready event",
             );
             this.bot.telegram.getMe().then(() => {
                 elizaLogger.info(
-                    "[AutoPost Telegram] Bot ready, starting monitoring"
+                    "[AutoPost Telegram] Bot ready, starting monitoring",
                 );
                 this._initializeAutoPost();
             });
@@ -168,9 +178,14 @@ export class MessageManager {
         setTimeout(() => {
             // Monitor with random intervals between 2-6 hours
             // Monitor with random intervals between 2-6 hours
-            this.autoPostInterval = setInterval(() => {
-                this._checkChannelActivity();
-            }, Math.floor(Math.random() * (4 * 60 * 60 * 1000) + 2 * 60 * 60 * 1000));
+            this.autoPostInterval = setInterval(
+                () => {
+                    this._checkChannelActivity();
+                },
+                Math.floor(
+                    Math.random() * (4 * 60 * 60 * 1000) + 2 * 60 * 60 * 1000,
+                ),
+            );
         }, 5000);
     }
 
@@ -205,7 +220,7 @@ export class MessageManager {
                     const roomId = stringToUuid(
                         this.autoPostConfig.mainChannelId +
                             "-" +
-                            this.runtime.agentId
+                            this.runtime.agentId,
                     );
                     const memory = {
                         id: stringToUuid(`autopost-${Date.now()}`),
@@ -236,12 +251,12 @@ export class MessageManager {
                     const responseContent = await this._generateResponse(
                         memory,
                         state,
-                        context
+                        context,
                     );
                     if (!responseContent?.text) return;
 
                     console.log(
-                        `[Auto Post Telegram] Recent Messages: ${responseContent}`
+                        `[Auto Post Telegram] Recent Messages: ${responseContent}`,
                     );
 
                     // Send message directly using telegram bot
@@ -250,15 +265,17 @@ export class MessageManager {
                             (chunk) =>
                                 this.bot.telegram.sendMessage(
                                     this.autoPostConfig.mainChannelId,
-                                    chunk
-                                )
-                        )
+                                    chunk,
+                                ),
+                        ),
                     );
 
                     // Create and store memories
                     const memories = messages.map((m) => ({
                         id: stringToUuid(
-                            m.message_id.toString() + "-" + this.runtime.agentId
+                            m.message_id.toString() +
+                                "-" +
+                                this.runtime.agentId,
                         ),
                         userId: this.runtime.agentId,
                         agentId: this.runtime.agentId,
@@ -283,13 +300,13 @@ export class MessageManager {
                 }
             } else {
                 elizaLogger.warn(
-                    "[AutoPost Telegram] Activity within threshold. Not posting."
+                    "[AutoPost Telegram] Activity within threshold. Not posting.",
                 );
             }
         } catch (error) {
             elizaLogger.warn(
                 "[AutoPost Telegram] Error checking channel activity:",
-                error
+                error,
             );
         }
     }
@@ -297,7 +314,7 @@ export class MessageManager {
     private async _monitorPinnedMessages(ctx: Context): Promise<void> {
         if (!this.autoPostConfig.pinnedMessagesGroups.length) {
             elizaLogger.warn(
-                "[AutoPost Telegram] Auto post config no pinned message groups"
+                "[AutoPost Telegram] Auto post config no pinned message groups",
             );
             return;
         }
@@ -311,7 +328,7 @@ export class MessageManager {
 
         if (
             !this.autoPostConfig.pinnedMessagesGroups.includes(
-                ctx.chat.id.toString()
+                ctx.chat.id.toString(),
             )
         )
             return;
@@ -321,7 +338,7 @@ export class MessageManager {
 
         try {
             elizaLogger.info(
-                `[AutoPost Telegram] Processing pinned message in group ${ctx.chat.id}`
+                `[AutoPost Telegram] Processing pinned message in group ${ctx.chat.id}`,
             );
 
             // Explicitly type and handle message content
@@ -330,12 +347,12 @@ export class MessageManager {
                 typeof pinnedMessage.text === "string"
                     ? pinnedMessage.text
                     : "caption" in pinnedMessage &&
-                      typeof pinnedMessage.caption === "string"
-                    ? pinnedMessage.caption
-                    : "New pinned message";
+                        typeof pinnedMessage.caption === "string"
+                      ? pinnedMessage.caption
+                      : "New pinned message";
 
             const roomId = stringToUuid(
-                mainChannel + "-" + this.runtime.agentId
+                mainChannel + "-" + this.runtime.agentId,
             );
             const memory = {
                 id: stringToUuid(`pinned-${Date.now()}`),
@@ -372,20 +389,20 @@ export class MessageManager {
             const responseContent = await this._generateResponse(
                 memory,
                 state,
-                context
+                context,
             );
             if (!responseContent?.text) return;
 
             // Send message using telegram bot
             const messages = await Promise.all(
                 this.splitMessage(responseContent.text.trim()).map((chunk) =>
-                    this.bot.telegram.sendMessage(mainChannel, chunk)
-                )
+                    this.bot.telegram.sendMessage(mainChannel, chunk),
+                ),
             );
 
             const memories = messages.map((m) => ({
                 id: stringToUuid(
-                    m.message_id.toString() + "-" + this.runtime.agentId
+                    m.message_id.toString() + "-" + this.runtime.agentId,
                 ),
                 userId: this.runtime.agentId,
                 agentId: this.runtime.agentId,
@@ -407,7 +424,7 @@ export class MessageManager {
         } catch (error) {
             elizaLogger.warn(
                 `[AutoPost Telegram] Error processing pinned message:`,
-                error
+                error,
             );
         }
     }
@@ -426,7 +443,7 @@ export class MessageManager {
 
         const normalizedUserId = this._getNormalizedUserId(userId);
         return teamConfig.teamAgentIds.some(
-            (teamId) => this._getNormalizedUserId(teamId) === normalizedUserId
+            (teamId) => this._getNormalizedUserId(teamId) === normalizedUserId,
         );
     }
 
@@ -440,14 +457,14 @@ export class MessageManager {
     private _isTeamCoordinationRequest(content: string): boolean {
         const contentLower = content.toLowerCase();
         return TEAM_COORDINATION.KEYWORDS?.some((keyword) =>
-            contentLower.includes(keyword.toLowerCase())
+            contentLower.includes(keyword.toLowerCase()),
         );
     }
 
     private _isRelevantToTeamMember(
         content: string,
         chatId: string,
-        lastAgentMemory: Memory | null = null
+        lastAgentMemory: Memory | null = null,
     ): boolean {
         const teamConfig = this.runtime.character.clientConfig?.telegram;
 
@@ -460,7 +477,7 @@ export class MessageManager {
 
             const similarity = cosineSimilarity(
                 content.toLowerCase(),
-                lastAgentMemory.content.text.toLowerCase()
+                lastAgentMemory.content.text.toLowerCase(),
             );
 
             return (
@@ -476,14 +493,14 @@ export class MessageManager {
 
         // Check if content matches any team member keywords
         return teamConfig.teamMemberInterestKeywords.some((keyword) =>
-            content.toLowerCase().includes(keyword.toLowerCase())
+            content.toLowerCase().includes(keyword.toLowerCase()),
         );
     }
 
     private async _analyzeContextSimilarity(
         currentMessage: string,
         previousContext?: MessageContext,
-        agentLastMessage?: string
+        agentLastMessage?: string,
     ): Promise<number> {
         if (!previousContext) return 1;
 
@@ -493,7 +510,7 @@ export class MessageManager {
         const similarity = cosineSimilarity(
             currentMessage.toLowerCase(),
             previousContext.content.toLowerCase(),
-            agentLastMessage?.toLowerCase()
+            agentLastMessage?.toLowerCase(),
         );
 
         return similarity * timeWeight;
@@ -501,14 +518,14 @@ export class MessageManager {
 
     private async _shouldRespondBasedOnContext(
         message: Message,
-        chatState: InterestChats[string]
+        chatState: InterestChats[string],
     ): Promise<boolean> {
         const messageText =
             "text" in message
                 ? message.text
                 : "caption" in message
-                ? message.caption
-                : "";
+                  ? message.caption
+                  : "";
 
         if (!messageText) return false;
 
@@ -526,14 +543,14 @@ export class MessageManager {
         const lastUserMessage = [...chatState.messages].reverse().find(
             (m, index) =>
                 index > 0 && // Skip first message (current)
-                m.userId !== this.runtime.agentId
+                m.userId !== this.runtime.agentId,
         );
 
         if (!lastUserMessage) return false;
 
         const lastSelfMemories = await this.runtime.messageManager.getMemories({
             roomId: stringToUuid(
-                message.chat.id.toString() + "-" + this.runtime.agentId
+                message.chat.id.toString() + "-" + this.runtime.agentId,
             ),
             unique: false,
             count: 5,
@@ -550,7 +567,7 @@ export class MessageManager {
                 content: lastUserMessage.content.text || "",
                 timestamp: Date.now(),
             },
-            lastSelfSortedMemories?.[0]?.content?.text
+            lastSelfSortedMemories?.[0]?.content?.text,
         );
 
         const similarityThreshold =
@@ -570,8 +587,8 @@ export class MessageManager {
             "text" in message
                 ? message.text
                 : "caption" in message
-                ? message.caption
-                : "";
+                  ? message.caption
+                  : "";
         if (!messageText) return false;
 
         const isReplyToBot =
@@ -606,7 +623,7 @@ export class MessageManager {
         ) {
             return this._isRelevantToTeamMember(
                 lastMessage?.content.text || "",
-                chatId
+                chatId,
             );
         }
 
@@ -615,7 +632,7 @@ export class MessageManager {
             if (
                 !this._isRelevantToTeamMember(
                     lastMessage?.content.text || "",
-                    chatId
+                    chatId,
                 )
             ) {
                 const recentTeamResponses = chatState.messages
@@ -623,7 +640,7 @@ export class MessageManager {
                     .some(
                         (m) =>
                             m.userId !== this.runtime.agentId &&
-                            this._isTeamMember(m.userId.toString())
+                            this._isTeamMember(m.userId.toString()),
                     );
 
                 if (recentTeamResponses) {
@@ -638,7 +655,7 @@ export class MessageManager {
 
     // Process image messages and generate descriptions
     private async processImage(
-        message: Message
+        message: Message,
     ): Promise<{ description: string } | null> {
         try {
             let imageUrl: string | null = null;
@@ -648,7 +665,7 @@ export class MessageManager {
             if ("photo" in message && message.photo?.length > 0) {
                 const photo = message.photo[message.photo.length - 1];
                 const fileLink = await this.bot.telegram.getFileLink(
-                    photo.file_id
+                    photo.file_id,
                 );
                 imageUrl = fileLink.toString();
             } else if (
@@ -656,7 +673,7 @@ export class MessageManager {
                 message.document?.mime_type?.startsWith("image/")
             ) {
                 const fileLink = await this.bot.telegram.getFileLink(
-                    message.document.file_id
+                    message.document.file_id,
                 );
                 imageUrl = fileLink.toString();
             }
@@ -664,7 +681,7 @@ export class MessageManager {
             if (imageUrl) {
                 const imageDescriptionService =
                     this.runtime.getService<IImageDescriptionService>(
-                        ServiceType.IMAGE_DESCRIPTION
+                        ServiceType.IMAGE_DESCRIPTION,
                     );
                 const { title, description } =
                     await imageDescriptionService.describeImage(imageUrl);
@@ -680,7 +697,7 @@ export class MessageManager {
     // Decide if the bot should respond to the message
     private async _shouldRespond(
         message: Message,
-        state: State
+        state: State,
     ): Promise<boolean> {
         if (
             this.runtime.character.clientConfig?.telegram
@@ -718,8 +735,8 @@ export class MessageManager {
             "text" in message
                 ? message.text
                 : "caption" in message
-                ? message.caption
-                : "";
+                  ? message.caption
+                  : "";
 
         // Check if team member has direct interest first
         if (
@@ -741,10 +758,10 @@ export class MessageManager {
                         Math.floor(
                             Math.random() *
                                 (TIMING_CONSTANTS.TEAM_MEMBER_DELAY_MAX -
-                                    TIMING_CONSTANTS.TEAM_MEMBER_DELAY_MIN)
+                                    TIMING_CONSTANTS.TEAM_MEMBER_DELAY_MIN),
                         ) + TIMING_CONSTANTS.TEAM_MEMBER_DELAY_MIN; // 1-3 second random delay
                     await new Promise((resolve) =>
-                        setTimeout(resolve, randomDelay)
+                        setTimeout(resolve, randomDelay),
                     );
                     return true;
                 }
@@ -756,20 +773,20 @@ export class MessageManager {
             ) {
                 // Add small delay for non-leader responses
                 await new Promise((resolve) =>
-                    setTimeout(resolve, TIMING_CONSTANTS.TEAM_MEMBER_DELAY)
+                    setTimeout(resolve, TIMING_CONSTANTS.TEAM_MEMBER_DELAY),
                 ); //1.5 second delay
 
                 // If leader has responded in last few seconds, reduce chance of responding
                 if (chatState.messages?.length) {
                     const recentMessages = chatState.messages.slice(
-                        -MESSAGE_CONSTANTS.RECENT_MESSAGE_COUNT
+                        -MESSAGE_CONSTANTS.RECENT_MESSAGE_COUNT,
                     );
                     const leaderResponded = recentMessages.some(
                         (m) =>
                             m.userId ===
                                 this.runtime.character.clientConfig?.telegram
                                     ?.teamLeaderId &&
-                            Date.now() - chatState.lastMessageSent < 3000
+                            Date.now() - chatState.lastMessageSent < 3000,
                     );
 
                     if (leaderResponded) {
@@ -790,21 +807,21 @@ export class MessageManager {
                     Math.floor(
                         Math.random() *
                             (TIMING_CONSTANTS.LEADER_DELAY_MAX -
-                                TIMING_CONSTANTS.LEADER_DELAY_MIN)
+                                TIMING_CONSTANTS.LEADER_DELAY_MIN),
                     ) + TIMING_CONSTANTS.LEADER_DELAY_MIN; // 2-4 second random delay
                 await new Promise((resolve) =>
-                    setTimeout(resolve, randomDelay)
+                    setTimeout(resolve, randomDelay),
                 );
 
                 // After delay, check if another team member has already responded
                 if (chatState?.messages?.length) {
                     const recentResponses = chatState.messages.slice(
-                        -MESSAGE_CONSTANTS.RECENT_MESSAGE_COUNT
+                        -MESSAGE_CONSTANTS.RECENT_MESSAGE_COUNT,
                     );
                     const otherTeamMemberResponded = recentResponses.some(
                         (m) =>
                             m.userId !== this.runtime.agentId &&
-                            this._isTeamMember(m.userId)
+                            this._isTeamMember(m.userId),
                     );
 
                     if (otherTeamMemberResponded) {
@@ -841,7 +858,7 @@ export class MessageManager {
                     chatId
                 ].messages.slice(-MESSAGE_CONSTANTS.CHAT_HISTORY_COUNT);
                 const ourMessageCount = recentMessages.filter(
-                    (m) => m.userId === this.runtime.agentId
+                    (m) => m.userId === this.runtime.agentId,
                 ).length;
 
                 if (ourMessageCount > 2) {
@@ -890,62 +907,111 @@ export class MessageManager {
     private async sendMessageInChunks(
         ctx: Context,
         content: Content,
-        replyToMessageId?: number
+        replyToMessageId?: number,
     ): Promise<Message.TextMessage[]> {
-        if (content.attachments && content.attachments.length > 0) {
-            content.attachments.map(async (attachment: Media) => {
-                const typeMap: { [key: string]: MediaType } = {
-                    "image/gif": MediaType.ANIMATION,
-                    image: MediaType.PHOTO,
-                    doc: MediaType.DOCUMENT,
-                    video: MediaType.VIDEO,
-                    audio: MediaType.AUDIO,
-                };
+        try {
+            if (content.attachments && content.attachments.length > 0) {
+                content.attachments.map(async (attachment: Media) => {
+                    const typeMap: { [key: string]: MediaType } = {
+                        "image/gif": MediaType.ANIMATION,
+                        image: MediaType.PHOTO,
+                        doc: MediaType.DOCUMENT,
+                        video: MediaType.VIDEO,
+                        audio: MediaType.AUDIO,
+                    };
 
-                let mediaType: MediaType | undefined = undefined;
+                    let mediaType: MediaType | undefined = undefined;
 
-                for (const prefix in typeMap) {
-                    if (attachment.contentType.startsWith(prefix)) {
-                        mediaType = typeMap[prefix];
-                        break;
+                    for (const prefix in typeMap) {
+                        if (attachment.contentType.startsWith(prefix)) {
+                            mediaType = typeMap[prefix];
+                            break;
+                        }
                     }
-                }
 
-                if (!mediaType) {
-                    throw new Error(
-                        `Unsupported Telegram attachment content type: ${attachment.contentType}`
+                    if (!mediaType) {
+                        throw new Error(
+                            `Unsupported Telegram attachment content type: ${attachment.contentType}`,
+                        );
+                    }
+
+                    await this.sendMedia(
+                        ctx,
+                        attachment.url,
+                        mediaType,
+                        attachment.description,
                     );
+                });
+            } else {
+                const chunks = this.splitMessage(content.text);
+                const sentMessages: Message.TextMessage[] = [];
+
+                for (let i = 0; i < chunks.length; i++) {
+                    try {
+                        const chunk = escapeMarkdown(chunks[i]);
+                        const sendPromise = ctx.telegram.sendMessage(
+                            ctx.chat.id,
+                            chunk,
+                            {
+                                reply_parameters:
+                                    i === 0 && replyToMessageId
+                                        ? { message_id: replyToMessageId }
+                                        : undefined,
+                                parse_mode: "Markdown",
+                            },
+                        );
+
+                        // Add 30 second timeout for each message send
+                        const sentMessage = (await Promise.race([
+                            sendPromise,
+                            new Promise((_, reject) =>
+                                setTimeout(
+                                    () =>
+                                        reject(
+                                            new Error(
+                                                "Message send timeout after 30s",
+                                            ),
+                                        ),
+                                    30000,
+                                ),
+                            ),
+                        ])) as Message.TextMessage;
+
+                        sentMessages.push(sentMessage);
+
+                        // Add small delay between chunks to avoid rate limiting
+                        if (i < chunks.length - 1) {
+                            await new Promise((resolve) =>
+                                setTimeout(resolve, 200),
+                            );
+                        }
+                    } catch (error) {
+                        elizaLogger.error("Failed to send message chunk:", {
+                            chunk_index: i,
+                            total_chunks: chunks.length,
+                            error:
+                                error instanceof Error
+                                    ? error.message
+                                    : String(error),
+                            stack:
+                                error instanceof Error
+                                    ? error.stack
+                                    : undefined,
+                        });
+                        throw error; // Re-throw to be handled by outer try-catch
+                    }
                 }
 
-                await this.sendMedia(
-                    ctx,
-                    attachment.url,
-                    mediaType,
-                    attachment.description
-                );
-            });
-        } else {
-            const chunks = this.splitMessage(content.text);
-            const sentMessages: Message.TextMessage[] = [];
-
-            for (let i = 0; i < chunks.length; i++) {
-                const chunk = escapeMarkdown(chunks[i]);
-                const sentMessage = (await ctx.telegram.sendMessage(
-                    ctx.chat.id,
-                    chunk,
-                    {
-                        reply_parameters:
-                            i === 0 && replyToMessageId
-                                ? { message_id: replyToMessageId }
-                                : undefined,
-                        parse_mode: "Markdown",
-                    }
-                )) as Message.TextMessage;
-
-                sentMessages.push(sentMessage);
+                return sentMessages;
             }
-
-            return sentMessages;
+        } catch (error) {
+            elizaLogger.error("Error in sendMessageInChunks:", {
+                chat_id: ctx.chat?.id,
+                content_length: content.text?.length,
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
+            });
+            throw error;
         }
     }
 
@@ -953,7 +1019,7 @@ export class MessageManager {
         ctx: Context,
         mediaPath: string,
         type: MediaType,
-        caption?: string
+        caption?: string,
     ): Promise<void> {
         try {
             const isUrl = /^(http|https):\/\//.test(mediaPath);
@@ -961,11 +1027,11 @@ export class MessageManager {
                 [MediaType.PHOTO]: ctx.telegram.sendPhoto.bind(ctx.telegram),
                 [MediaType.VIDEO]: ctx.telegram.sendVideo.bind(ctx.telegram),
                 [MediaType.DOCUMENT]: ctx.telegram.sendDocument.bind(
-                    ctx.telegram
+                    ctx.telegram,
                 ),
                 [MediaType.AUDIO]: ctx.telegram.sendAudio.bind(ctx.telegram),
                 [MediaType.ANIMATION]: ctx.telegram.sendAnimation.bind(
-                    ctx.telegram
+                    ctx.telegram,
                 ),
             };
 
@@ -990,7 +1056,7 @@ export class MessageManager {
                     await sendFunction(
                         ctx.chat.id,
                         { source: fileStream },
-                        { caption }
+                        { caption },
                     );
                 } finally {
                     fileStream.destroy();
@@ -1000,11 +1066,11 @@ export class MessageManager {
             elizaLogger.info(
                 `${
                     type.charAt(0).toUpperCase() + type.slice(1)
-                } sent successfully: ${mediaPath}`
+                } sent successfully: ${mediaPath}`,
             );
         } catch (error) {
             elizaLogger.error(
-                `Failed to send ${type}. Path: ${mediaPath}. Error: ${error.message}`
+                `Failed to send ${type}. Path: ${mediaPath}. Error: ${error.message}`,
             );
             elizaLogger.debug(error.stack);
             throw error;
@@ -1034,9 +1100,15 @@ export class MessageManager {
     private async _generateResponse(
         message: Memory,
         _state: State,
-        context: string
+        context: string,
     ): Promise<Content> {
         const { userId, roomId } = message;
+
+        elizaLogger.info("Generating response:", {
+            memory_id: message.id,
+            context_length: context.length,
+            timestamp: new Date().toISOString(),
+        });
 
         const response = await generateMessageResponse({
             runtime: this.runtime,
@@ -1045,9 +1117,15 @@ export class MessageManager {
         });
 
         if (!response) {
-            console.error("❌ No response from generateMessageResponse");
+            elizaLogger.error("No response generated from model");
             return null;
         }
+
+        elizaLogger.info("Response generated:", {
+            response_length: response.text?.length,
+            has_attachments: !!response.attachments?.length,
+            timestamp: new Date().toISOString(),
+        });
 
         await this.runtime.databaseAdapter.log({
             body: { message, context, response },
@@ -1060,354 +1138,443 @@ export class MessageManager {
     }
 
     // Main handler for incoming messages
-    public async handleMessage(ctx: Context): Promise<void> {
-        if (!ctx.message || !ctx.from) {
-            return; // Exit if no message or sender info
-        }
+    public async handleMessage(
+        ctx: NarrowedContext<Context<Update>, Update.MessageUpdate>,
+    ): Promise<void> {
+        try {
+            const message = ctx.message as TelegramMessage;
+            const from = ctx.from;
 
-        this.lastChannelActivity[ctx.chat.id.toString()] = Date.now();
-
-        // Check for pinned message and route to monitor function
-        if (
-            this.autoPostConfig.enabled &&
-            ctx.message &&
-            "pinned_message" in ctx.message
-        ) {
-            // We know this is a message update context now
-            await this._monitorPinnedMessages(ctx);
-            return;
-        }
-
-        if (
-            this.runtime.character.clientConfig?.telegram
-                ?.shouldIgnoreBotMessages &&
-            ctx.from.is_bot
-        ) {
-            return;
-        }
-        if (
-            this.runtime.character.clientConfig?.telegram
-                ?.shouldIgnoreDirectMessages &&
-            ctx.chat?.type === "private"
-        ) {
-            return;
-        }
-
-        const message = ctx.message;
-        const chatId = ctx.chat?.id.toString();
-        const messageText =
-            "text" in message
-                ? message.text
-                : "caption" in message
-                ? message.caption
-                : "";
-
-        // Add team handling at the start
-        if (
-            this.runtime.character.clientConfig?.telegram?.isPartOfTeam &&
-            !this.runtime.character.clientConfig?.telegram
-                ?.shouldRespondOnlyToMentions
-        ) {
-            const isDirectlyMentioned = this._isMessageForMe(message);
-            const hasInterest = this._checkInterest(chatId);
-
-            // Non-leader team member showing interest based on keywords
-            if (
-                !this._isTeamLeader() &&
-                this._isRelevantToTeamMember(messageText, chatId)
-            ) {
-                this.interestChats[chatId] = {
-                    currentHandler: this.bot.botInfo?.id.toString(),
-                    lastMessageSent: Date.now(),
-                    messages: [],
-                };
-            }
-
-            const isTeamRequest = this._isTeamCoordinationRequest(messageText);
-            const isLeader = this._isTeamLeader();
-
-            // Check for continued interest
-            if (hasInterest && !isDirectlyMentioned) {
-                const lastSelfMemories =
-                    await this.runtime.messageManager.getMemories({
-                        roomId: stringToUuid(
-                            chatId + "-" + this.runtime.agentId
-                        ),
-                        unique: false,
-                        count: 5,
-                    });
-
-                const lastSelfSortedMemories = lastSelfMemories
-                    ?.filter((m) => m.userId === this.runtime.agentId)
-                    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-                const isRelevant = this._isRelevantToTeamMember(
-                    messageText,
-                    chatId,
-                    lastSelfSortedMemories?.[0]
+            if (!message || !from) {
+                elizaLogger.warn(
+                    "Received message without message or from data",
                 );
-
-                if (!isRelevant) {
-                    delete this.interestChats[chatId];
-                    return;
-                }
-            }
-
-            // Handle team coordination requests
-            if (isTeamRequest) {
-                if (isLeader) {
-                    this.interestChats[chatId] = {
-                        currentHandler: this.bot.botInfo?.id.toString(),
-                        lastMessageSent: Date.now(),
-                        messages: [],
-                    };
-                } else {
-                    this.interestChats[chatId] = {
-                        currentHandler: this.bot.botInfo?.id.toString(),
-                        lastMessageSent: Date.now(),
-                        messages: [],
-                    };
-
-                    if (!isDirectlyMentioned) {
-                        this.interestChats[chatId].lastMessageSent = 0;
-                    }
-                }
-            }
-
-            // Check for other team member mentions using cached usernames
-            const otherTeamMembers =
-                this.runtime.character.clientConfig.telegram.teamAgentIds.filter(
-                    (id) => id !== this.bot.botInfo?.id.toString()
-                );
-
-            const mentionedTeamMember = otherTeamMembers.find((id) => {
-                const username = this._getTeamMemberUsername(id);
-                return username && messageText?.includes(`@${username}`);
-            });
-
-            // If another team member is mentioned, clear our interest
-            if (mentionedTeamMember) {
-                if (
-                    hasInterest ||
-                    this.interestChats[chatId]?.currentHandler ===
-                        this.bot.botInfo?.id.toString()
-                ) {
-                    delete this.interestChats[chatId];
-
-                    // Only return if we're not the mentioned member
-                    if (!isDirectlyMentioned) {
-                        return;
-                    }
-                }
-            }
-
-            // Set/maintain interest only if we're mentioned or already have interest
-            if (isDirectlyMentioned) {
-                this.interestChats[chatId] = {
-                    currentHandler: this.bot.botInfo?.id.toString(),
-                    lastMessageSent: Date.now(),
-                    messages: [],
-                };
-            } else if (!isTeamRequest && !hasInterest) {
                 return;
             }
 
-            // Update message tracking
-            if (this.interestChats[chatId]) {
-                this.interestChats[chatId].messages.push({
-                    userId: stringToUuid(ctx.from.id.toString()),
-                    userName:
-                        ctx.from.username ||
-                        ctx.from.first_name ||
-                        "Unknown User",
-                    content: { text: messageText, source: "telegram" },
+            // Log detailed message info
+            elizaLogger.info("Telegram Message:", {
+                sender: {
+                    id: from.id,
+                    username: from.username,
+                    is_bot: from.is_bot,
+                },
+                chat: {
+                    id: ctx.chat.id,
+                    type: ctx.chat.type,
+                },
+                message: {
+                    id: message.message_id,
+                    text: message.text,
+                    caption: message.caption,
+                    type: this.getMessageType(message),
+                },
+            });
+
+            // Add DKG-specific logging
+            if (message.text?.includes("https://dkg")) {
+                elizaLogger.info("DKG Link Detected:", {
+                    full_message: message.text,
+                    ual: message.text.match(/ual=([^\s]+)/)?.[1],
+                    sender: from.username,
+                    chat_id: ctx.chat.id,
+                    timestamp: new Date().toISOString(),
                 });
+            }
 
+            // Log memory creation
+            const createMemoryWithLogging = async (memory: Memory) => {
+                elizaLogger.info("Creating Memory:", {
+                    memory_id: memory.id,
+                    content_preview: memory.content.text?.substring(0, 100),
+                    source: memory.content.source,
+                    timestamp: new Date(memory.createdAt).toISOString(),
+                });
+                await this.runtime.messageManager.createMemory(memory);
+                elizaLogger.info("Memory Created Successfully:", {
+                    memory_id: memory.id,
+                    timestamp: new Date().toISOString(),
+                });
+            };
+
+            this.lastChannelActivity[ctx.chat.id.toString()] = Date.now();
+
+            // Check for pinned message and route to monitor function
+            if (
+                this.autoPostConfig.enabled &&
+                ctx.message &&
+                "pinned_message" in ctx.message
+            ) {
+                // We know this is a message update context now
+                await this._monitorPinnedMessages(ctx);
+                return;
+            }
+
+            if (
+                this.runtime.character.clientConfig?.telegram
+                    ?.shouldIgnoreBotMessages &&
+                ctx.from.is_bot
+            ) {
+                return;
+            }
+            if (
+                this.runtime.character.clientConfig?.telegram
+                    ?.shouldIgnoreDirectMessages &&
+                ctx.chat?.type === "private"
+            ) {
+                return;
+            }
+
+            const chatId = ctx.chat?.id.toString();
+            const messageText =
+                "text" in message
+                    ? message.text
+                    : "caption" in message
+                      ? message.caption
+                      : "";
+
+            // Add team handling at the start
+            if (
+                this.runtime.character.clientConfig?.telegram?.isPartOfTeam &&
+                !this.runtime.character.clientConfig?.telegram
+                    ?.shouldRespondOnlyToMentions
+            ) {
+                const isDirectlyMentioned = this._isMessageForMe(message);
+                const hasInterest = this._checkInterest(chatId);
+
+                // Non-leader team member showing interest based on keywords
                 if (
-                    this.interestChats[chatId].messages.length >
-                    MESSAGE_CONSTANTS.MAX_MESSAGES
+                    !this._isTeamLeader() &&
+                    this._isRelevantToTeamMember(messageText, chatId)
                 ) {
-                    this.interestChats[chatId].messages = this.interestChats[
-                        chatId
-                    ].messages.slice(-MESSAGE_CONSTANTS.MAX_MESSAGES);
+                    this.interestChats[chatId] = {
+                        currentHandler: this.bot.botInfo?.id.toString(),
+                        lastMessageSent: Date.now(),
+                        messages: [],
+                    };
                 }
-            }
-        }
 
-        try {
-            // Convert IDs to UUIDs
-            const userId = stringToUuid(ctx.from.id.toString()) as UUID;
+                const isTeamRequest =
+                    this._isTeamCoordinationRequest(messageText);
+                const isLeader = this._isTeamLeader();
 
-            // Get user name
-            const userName =
-                ctx.from.username || ctx.from.first_name || "Unknown User";
-
-            // Get chat ID
-            const chatId = stringToUuid(
-                ctx.chat?.id.toString() + "-" + this.runtime.agentId
-            ) as UUID;
-
-            // Get agent ID
-            const agentId = this.runtime.agentId;
-
-            // Get room ID
-            const roomId = chatId;
-
-            // Ensure connection
-            await this.runtime.ensureConnection(
-                userId,
-                roomId,
-                userName,
-                userName,
-                "telegram"
-            );
-
-            // Get message ID
-            const messageId = stringToUuid(
-                message.message_id.toString() + "-" + this.runtime.agentId
-            ) as UUID;
-
-            // Handle images
-            const imageInfo = await this.processImage(message);
-
-            // Get text or caption
-            let messageText = "";
-            if ("text" in message) {
-                messageText = message.text;
-            } else if ("caption" in message && message.caption) {
-                messageText = message.caption;
-            }
-
-            // Combine text and image description
-            const fullText = imageInfo
-                ? `${messageText} ${imageInfo.description}`
-                : messageText;
-
-            if (!fullText) {
-                return; // Skip if no content
-            }
-
-            // Create content
-            const content: Content = {
-                text: fullText,
-                source: "telegram",
-                inReplyTo:
-                    "reply_to_message" in message && message.reply_to_message
-                        ? stringToUuid(
-                              message.reply_to_message.message_id.toString() +
-                                  "-" +
-                                  this.runtime.agentId
-                          )
-                        : undefined,
-            };
-
-            // Create memory for the message
-            const memory: Memory = {
-                id: messageId,
-                agentId,
-                userId,
-                roomId,
-                content,
-                createdAt: message.date * 1000,
-                embedding: getEmbeddingZeroVector(),
-            };
-
-            // Create memory
-            await this.runtime.messageManager.createMemory(memory);
-
-            // Update state with the new memory
-            let state = await this.runtime.composeState(memory);
-            state = await this.runtime.updateRecentMessageState(state);
-
-            // Decide whether to respond
-            const shouldRespond = await this._shouldRespond(message, state);
-
-            // Send response in chunks
-            const callback: HandlerCallback = async (content: Content) => {
-                const sentMessages = await this.sendMessageInChunks(
-                    ctx,
-                    content,
-                    message.message_id
-                );
-                if (sentMessages) {
-                    const memories: Memory[] = [];
-
-                    // Create memories for each sent message
-                    for (let i = 0; i < sentMessages.length; i++) {
-                        const sentMessage = sentMessages[i];
-                        const isLastMessage = i === sentMessages.length - 1;
-
-                        const memory: Memory = {
-                            id: stringToUuid(
-                                sentMessage.message_id.toString() +
-                                    "-" +
-                                    this.runtime.agentId
+                // Check for continued interest
+                if (hasInterest && !isDirectlyMentioned) {
+                    const lastSelfMemories =
+                        await this.runtime.messageManager.getMemories({
+                            roomId: stringToUuid(
+                                chatId + "-" + this.runtime.agentId,
                             ),
-                            agentId,
-                            userId: agentId,
-                            roomId,
-                            content: {
-                                ...content,
-                                text: sentMessage.text,
-                                inReplyTo: messageId,
-                            },
-                            createdAt: sentMessage.date * 1000,
-                            embedding: getEmbeddingZeroVector(),
+                            unique: false,
+                            count: 5,
+                        });
+
+                    const lastSelfSortedMemories = lastSelfMemories
+                        ?.filter((m) => m.userId === this.runtime.agentId)
+                        .sort(
+                            (a, b) => (b.createdAt || 0) - (a.createdAt || 0),
+                        );
+
+                    const isRelevant = this._isRelevantToTeamMember(
+                        messageText,
+                        chatId,
+                        lastSelfSortedMemories?.[0],
+                    );
+
+                    if (!isRelevant) {
+                        delete this.interestChats[chatId];
+                        return;
+                    }
+                }
+
+                // Handle team coordination requests
+                if (isTeamRequest) {
+                    if (isLeader) {
+                        this.interestChats[chatId] = {
+                            currentHandler: this.bot.botInfo?.id.toString(),
+                            lastMessageSent: Date.now(),
+                            messages: [],
+                        };
+                    } else {
+                        this.interestChats[chatId] = {
+                            currentHandler: this.bot.botInfo?.id.toString(),
+                            lastMessageSent: Date.now(),
+                            messages: [],
                         };
 
-                        // Set action to CONTINUE for all messages except the last one
-                        // For the last message, use the original action from the response content
-                        memory.content.action = !isLastMessage
-                            ? "CONTINUE"
-                            : content.action;
-
-                        await this.runtime.messageManager.createMemory(memory);
-                        memories.push(memory);
+                        if (!isDirectlyMentioned) {
+                            this.interestChats[chatId].lastMessageSent = 0;
+                        }
                     }
-
-                    return memories;
                 }
-            };
 
-            if (shouldRespond) {
-                // Generate response
-                const context = composeContext({
-                    state,
-                    template:
-                        this.runtime.character.templates
-                            ?.telegramMessageHandlerTemplate ||
-                        this.runtime.character?.templates
-                            ?.messageHandlerTemplate ||
-                        telegramMessageHandlerTemplate,
+                // Check for other team member mentions using cached usernames
+                const otherTeamMembers =
+                    this.runtime.character.clientConfig.telegram.teamAgentIds.filter(
+                        (id) => id !== this.bot.botInfo?.id.toString(),
+                    );
+
+                const mentionedTeamMember = otherTeamMembers.find((id) => {
+                    const username = this._getTeamMemberUsername(id);
+                    return username && messageText?.includes(`@${username}`);
                 });
 
-                const responseContent = await this._generateResponse(
-                    memory,
-                    state,
-                    context
-                );
+                // If another team member is mentioned, clear our interest
+                if (mentionedTeamMember) {
+                    if (
+                        hasInterest ||
+                        this.interestChats[chatId]?.currentHandler ===
+                            this.bot.botInfo?.id.toString()
+                    ) {
+                        delete this.interestChats[chatId];
 
-                if (!responseContent || !responseContent.text) return;
+                        // Only return if we're not the mentioned member
+                        if (!isDirectlyMentioned) {
+                            return;
+                        }
+                    }
+                }
 
-                // Execute callback to send messages and log memories
-                const responseMessages = await callback(responseContent);
+                // Set/maintain interest only if we're mentioned or already have interest
+                if (isDirectlyMentioned) {
+                    this.interestChats[chatId] = {
+                        currentHandler: this.bot.botInfo?.id.toString(),
+                        lastMessageSent: Date.now(),
+                        messages: [],
+                    };
+                } else if (!isTeamRequest && !hasInterest) {
+                    return;
+                }
 
-                // Update state after response
-                state = await this.runtime.updateRecentMessageState(state);
+                // Update message tracking
+                if (this.interestChats[chatId]) {
+                    this.interestChats[chatId].messages.push({
+                        userId: stringToUuid(ctx.from.id.toString()),
+                        userName:
+                            ctx.from.username ||
+                            ctx.from.first_name ||
+                            "Unknown User",
+                        content: { text: messageText, source: "telegram" },
+                    });
 
-                // Handle any resulting actions
-                await this.runtime.processActions(
-                    memory,
-                    responseMessages,
-                    state,
-                    callback
-                );
+                    if (
+                        this.interestChats[chatId].messages.length >
+                        MESSAGE_CONSTANTS.MAX_MESSAGES
+                    ) {
+                        this.interestChats[chatId].messages =
+                            this.interestChats[chatId].messages.slice(
+                                -MESSAGE_CONSTANTS.MAX_MESSAGES,
+                            );
+                    }
+                }
             }
 
-            await this.runtime.evaluate(memory, state, shouldRespond, callback);
+            try {
+                // Convert IDs to UUIDs
+                const userId = stringToUuid(ctx.from.id.toString()) as UUID;
+
+                // Get user name
+                const userName =
+                    ctx.from.username || ctx.from.first_name || "Unknown User";
+
+                // Get chat ID
+                const chatId = stringToUuid(
+                    ctx.chat?.id.toString() + "-" + this.runtime.agentId,
+                ) as UUID;
+
+                // Get agent ID
+                const agentId = this.runtime.agentId;
+
+                // Get room ID
+                const roomId = chatId;
+
+                // Ensure connection
+                await this.runtime.ensureConnection(
+                    userId,
+                    roomId,
+                    userName,
+                    userName,
+                    "telegram",
+                );
+
+                // Get message ID
+                const messageId = stringToUuid(
+                    message.message_id.toString() + "-" + this.runtime.agentId,
+                ) as UUID;
+
+                // Handle images
+                const imageInfo = await this.processImage(message);
+
+                // Get text or caption
+                let messageText = "";
+                if ("text" in message) {
+                    messageText = message.text;
+                } else if ("caption" in message && message.caption) {
+                    messageText = message.caption;
+                }
+
+                // Combine text and image description
+                const fullText = imageInfo
+                    ? `${messageText} ${imageInfo.description}`
+                    : messageText;
+
+                if (!fullText) {
+                    return; // Skip if no content
+                }
+
+                // Create content
+                const content: Content = {
+                    text: fullText,
+                    source: "telegram",
+                    inReplyTo:
+                        "reply_to_message" in message &&
+                        message.reply_to_message
+                            ? stringToUuid(
+                                  message.reply_to_message.message_id.toString() +
+                                      "-" +
+                                      this.runtime.agentId,
+                              )
+                            : undefined,
+                };
+
+                // Create memory for the message
+                const memory: Memory = {
+                    id: messageId,
+                    agentId,
+                    userId,
+                    roomId,
+                    content,
+                    createdAt: message.date * 1000,
+                    embedding: getEmbeddingZeroVector(),
+                };
+
+                // Create memory
+                await createMemoryWithLogging(memory);
+
+                // Update state with the new memory
+                let state = await this.runtime.composeState(memory);
+                elizaLogger.info("Initial state composed:", {
+                    memory_id: memory.id,
+                    has_recent_messages: !!state.recentMessages?.length,
+                    timestamp: new Date().toISOString(),
+                });
+
+                state = await this.runtime.updateRecentMessageState(state);
+                elizaLogger.info("State updated with recent messages:", {
+                    memory_id: memory.id,
+                    recent_message_count: state.recentMessages?.length,
+                    timestamp: new Date().toISOString(),
+                });
+
+                // Decide whether to respond
+                const shouldRespond = await this._shouldRespond(message, state);
+
+                // Send response in chunks
+                const callback: HandlerCallback = async (content: Content) => {
+                    const sentMessages = await this.sendMessageInChunks(
+                        ctx,
+                        content,
+                        message.message_id,
+                    );
+                    if (sentMessages) {
+                        const memories: Memory[] = [];
+
+                        // Create memories for each sent message
+                        for (let i = 0; i < sentMessages.length; i++) {
+                            const sentMessage = sentMessages[i];
+                            const isLastMessage = i === sentMessages.length - 1;
+
+                            const memory: Memory = {
+                                id: stringToUuid(
+                                    sentMessage.message_id.toString() +
+                                        "-" +
+                                        this.runtime.agentId,
+                                ),
+                                agentId,
+                                userId: agentId,
+                                roomId,
+                                content: {
+                                    ...content,
+                                    text: sentMessage.text,
+                                    inReplyTo: messageId,
+                                },
+                                createdAt: sentMessage.date * 1000,
+                                embedding: getEmbeddingZeroVector(),
+                            };
+
+                            // Set action to CONTINUE for all messages except the last one
+                            // For the last message, use the original action from the response content
+                            memory.content.action = !isLastMessage
+                                ? "CONTINUE"
+                                : content.action;
+
+                            await createMemoryWithLogging(memory);
+                            memories.push(memory);
+                        }
+
+                        return memories;
+                    }
+                };
+
+                if (shouldRespond) {
+                    // Generate response
+                    const context = composeContext({
+                        state,
+                        template:
+                            this.runtime.character.templates
+                                ?.telegramMessageHandlerTemplate ||
+                            this.runtime.character?.templates
+                                ?.messageHandlerTemplate ||
+                            telegramMessageHandlerTemplate,
+                    });
+
+                    const responseContent = await this._generateResponse(
+                        memory,
+                        state,
+                        context,
+                    );
+
+                    if (!responseContent || !responseContent.text) return;
+
+                    // Execute callback to send messages and log memories
+                    const responseMessages = await callback(responseContent);
+
+                    // Update state after response
+                    state = await this.runtime.updateRecentMessageState(state);
+
+                    // Handle any resulting actions
+                    await this.runtime.processActions(
+                        memory,
+                        responseMessages,
+                        state,
+                        callback,
+                    );
+                }
+
+                await this.runtime.evaluate(
+                    memory,
+                    state,
+                    shouldRespond,
+                    callback,
+                );
+            } catch (error) {
+                elizaLogger.error("❌ Error handling message:", error);
+                elizaLogger.error("Error sending message:", error);
+            }
         } catch (error) {
-            elizaLogger.error("❌ Error handling message:", error);
-            elizaLogger.error("Error sending message:", error);
+            elizaLogger.error("Error handling message:", {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
+            });
+            throw error;
         }
+    }
+
+    private getMessageType(message: TelegramMessage): string {
+        if ("text" in message) return "text";
+        if ("photo" in message) return "photo";
+        if ("document" in message) return "document";
+        if ("video" in message) return "video";
+        return "unknown";
     }
 }

@@ -70,3 +70,5 @@ characters
 # Private individual user cursor rules
 .cursor
 xnotes
+
+*.log

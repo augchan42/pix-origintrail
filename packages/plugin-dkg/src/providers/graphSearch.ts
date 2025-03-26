@@ -55,6 +55,11 @@ async function constructSparqlQuery(
     runtime: IAgentRuntime,
     userQuery: string,
 ): Promise<string> {
+    elizaLogger.info("Constructing SPARQL query for user input:", {
+        query_length: userQuery.length,
+        query_preview: userQuery.substring(0, 100),
+    });
+
     const context = `
     You are tasked with generating a SPARQL query to retrieve information from a Decentralized Knowledge Graph (DKG).
     The query should align with the JSON-LD memory template provided below:
@@ -81,15 +86,38 @@ async function constructSparqlQuery(
     Provide only the SPARQL query, wrapped in a sparql code block for clarity.
   `;
 
+    elizaLogger.info("Generating SPARQL query using LLM", {
+        context_length: context.length,
+        model_class: ModelClass.LARGE,
+    });
+
     const sparqlTextResult = await generateText({
         runtime,
         context,
         modelClass: ModelClass.LARGE,
     });
 
-    const sparqlQueryMatch = sparqlTextResult.match(/```sparql([\s\S]*?)```/);
+    elizaLogger.info("Raw LLM response received", {
+        response_length: sparqlTextResult.length,
+        response_preview: sparqlTextResult.substring(0, 100),
+    });
 
+    const sparqlQueryMatch = sparqlTextResult.match(/```sparql([\s\S]*?)```/);
     const sparqlQuery = sparqlQueryMatch ? sparqlQueryMatch[1].trim() : null;
+
+    if (!sparqlQuery) {
+        elizaLogger.warn(
+            "Failed to extract valid SPARQL query from LLM response",
+            {
+                raw_response: sparqlTextResult,
+            },
+        );
+    } else {
+        elizaLogger.info("Successfully extracted SPARQL query", {
+            query_length: sparqlQuery.length,
+            query: sparqlQuery,
+        });
+    }
 
     return sparqlQuery;
 }
@@ -97,87 +125,149 @@ async function constructSparqlQuery(
 export class DKGProvider {
     private client: any; // TODO: add type
     constructor(config: DKGClientConfig) {
+        elizaLogger.info("Initializing DKG Provider with config:", {
+            environment: config.environment,
+            endpoint: config.endpoint,
+            port: config.port,
+            blockchain_name: config.blockchain.name,
+            has_public_key: !!config.blockchain.publicKey,
+            has_private_key: !!config.blockchain.privateKey,
+        });
         this.validateConfig(config);
     }
 
     private validateConfig(config: DKGClientConfig): void {
+        elizaLogger.info("Validating DKG provider configuration");
         const requiredStringFields = ["environment", "endpoint", "port"];
 
         for (const field of requiredStringFields) {
+            elizaLogger.debug(`Validating ${field}`, {
+                field_value_exists: !!config[field as keyof DKGClientConfig],
+                field_type: typeof config[field as keyof DKGClientConfig],
+            });
+
             if (typeof config[field as keyof DKGClientConfig] !== "string") {
-                elizaLogger.error(
-                    `Invalid configuration: Missing or invalid value for '${field}'`,
-                );
-                throw new Error(
-                    `Invalid configuration: Missing or invalid value for '${field}'`,
-                );
+                const error = `Invalid configuration: Missing or invalid value for '${field}'`;
+                elizaLogger.error(error);
+                throw new Error(error);
             }
         }
 
         if (!config.blockchain || typeof config.blockchain !== "object") {
-            elizaLogger.error(
-                "Invalid configuration: 'blockchain' must be an object",
-            );
-            throw new Error(
-                "Invalid configuration: 'blockchain' must be an object",
-            );
+            const error =
+                "Invalid configuration: 'blockchain' must be an object";
+            elizaLogger.error(error);
+            throw new Error(error);
         }
 
         const blockchainFields = ["name", "publicKey", "privateKey"];
-
         for (const field of blockchainFields) {
+            elizaLogger.debug(`Validating blockchain.${field}`, {
+                field_value_exists:
+                    !!config.blockchain[field as keyof BlockchainConfig],
+                field_type:
+                    typeof config.blockchain[field as keyof BlockchainConfig],
+            });
+
             if (
                 typeof config.blockchain[field as keyof BlockchainConfig] !==
                 "string"
             ) {
-                elizaLogger.error(
-                    `Invalid configuration: Missing or invalid value for 'blockchain.${field}'`,
-                );
-                throw new Error(
-                    `Invalid configuration: Missing or invalid value for 'blockchain.${field}'`,
-                );
+                const error = `Invalid configuration: Missing or invalid value for 'blockchain.${field}'`;
+                elizaLogger.error(error);
+                throw new Error(error);
             }
         }
 
+        elizaLogger.info(
+            "Configuration validation successful, initializing DKG client",
+        );
         this.client = new DKG(config);
     }
 
     async search(runtime: IAgentRuntime, message: Memory): Promise<string> {
-        elizaLogger.info(`Entering graph search provider!`);
+        elizaLogger.info("Starting DKG graph search", {
+            memory_id: message.id,
+            content_length: message.content.text?.length,
+        });
 
         const userQuery = message.content.text;
-
-        elizaLogger.info(`Got user query ${JSON.stringify(userQuery)}`);
+        elizaLogger.info("Processing user query", {
+            query_preview: userQuery.substring(0, 100),
+            query_length: userQuery.length,
+        });
 
         const query = await constructSparqlQuery(runtime, userQuery);
-        elizaLogger.info(`Generated SPARQL query: ${query}`);
+        elizaLogger.info("Generated SPARQL query for search", {
+            query_length: query?.length,
+            query: query,
+        });
 
-        let queryOperationResult = await this.client.graph.query(
-            query,
-            "SELECT",
-        );
+        let queryOperationResult;
+        try {
+            elizaLogger.info("Executing SPARQL query against DKG");
+            queryOperationResult = await this.client.graph.query(
+                query,
+                "SELECT",
+            );
+            elizaLogger.info("DKG query execution completed", {
+                has_results: !!queryOperationResult?.data,
+                result_count: queryOperationResult?.data?.length || 0,
+            });
+        } catch (error) {
+            elizaLogger.error("Error executing SPARQL query", {
+                error: error.message,
+                stack: error.stack,
+                query: query,
+            });
+        }
 
         if (!queryOperationResult || !queryOperationResult.data?.length) {
             elizaLogger.info(
-                `LLM-generated SPARQL query failed, defaulting to basic query.`,
+                "LLM-generated query failed, falling back to basic query",
+                {
+                    fallback_query: generalSparqlQuery,
+                },
             );
 
-            queryOperationResult = await this.client.graph.query(
-                generalSparqlQuery,
-                "SELECT",
-            );
+            try {
+                queryOperationResult = await this.client.graph.query(
+                    generalSparqlQuery,
+                    "SELECT",
+                );
+                elizaLogger.info("Fallback query execution completed", {
+                    has_results: !!queryOperationResult?.data,
+                    result_count: queryOperationResult?.data?.length || 0,
+                });
+            } catch (error) {
+                elizaLogger.error("Error executing fallback query", {
+                    error: error.message,
+                    stack: error.stack,
+                });
+                return "No results found";
+            }
         }
 
-        elizaLogger.info(
-            `Got ${queryOperationResult.data.length} results from the DKG`,
-        );
+        elizaLogger.info("Processing search results", {
+            total_results: queryOperationResult.data.length,
+        });
 
         // TODO: take 5 results instead of all based on similarity in the future
-        const result = queryOperationResult.data.map((entry: any) => {
-            const formattedParts = Object.keys(entry).map(
-                (key) => `${key}: ${entry[key]}`,
-            );
-            return formattedParts.join(", ");
+        const result = queryOperationResult.data.map(
+            (entry: any, index: number) => {
+                elizaLogger.debug(`Processing result ${index + 1}`, {
+                    keys: Object.keys(entry),
+                });
+                const formattedParts = Object.keys(entry).map(
+                    (key) => `${key}: ${entry[key]}`,
+                );
+                return formattedParts.join(", ");
+            },
+        );
+
+        elizaLogger.info("Search completed successfully", {
+            formatted_result_count: result.length,
+            total_length: result.join("\n").length,
         });
 
         return result.join("\n");
@@ -187,15 +277,35 @@ export class DKGProvider {
 export const graphSearch: Provider = {
     get: async (
         runtime: IAgentRuntime,
-        _message: Memory,
+        message: Memory,
         _state?: State,
     ): Promise<string | null> => {
-        try {
-            const provider = new DKGProvider(PROVIDER_CONFIG);
+        elizaLogger.info("Graph search provider invoked", {
+            memory_id: message.id,
+            has_state: !!_state,
+        });
 
-            return await provider.search(runtime, _message);
+        try {
+            elizaLogger.info("Creating DKG provider instance with config", {
+                environment: PROVIDER_CONFIG.environment,
+                endpoint: PROVIDER_CONFIG.endpoint,
+            });
+
+            const provider = new DKGProvider(PROVIDER_CONFIG);
+            const result = await provider.search(runtime, message);
+
+            elizaLogger.info("Graph search completed", {
+                has_result: !!result,
+                result_length: result?.length,
+            });
+
+            return result;
         } catch (error) {
-            elizaLogger.error("Error in wallet provider:", error);
+            elizaLogger.error("Error in graph search provider:", {
+                error: error.message,
+                stack: error.stack,
+                memory_id: message.id,
+            });
             return null;
         }
     },
